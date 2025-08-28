@@ -1,0 +1,7 @@
+{
+  "name": "loveMap",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
