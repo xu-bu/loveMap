@@ -17,9 +17,6 @@ import { onMounted } from "vue";
 import { IonicVue, IonApp, IonHeader, IonToolbar, IonTitle, IonContent } from "@ionic/vue";
 import { Geolocation } from '@capacitor/geolocation';
 
-// Components registration (for template)
-const components = { IonApp, IonHeader, IonToolbar, IonTitle, IonContent };
-
 const loadGoogleMaps = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     if ((window as any).google) {

@@ -22,19 +22,18 @@ jobs:
       - name: Build Ionic App
         run: |
           npm ci
-          npx vite build
+          ionic build
           npx cap sync android
+          ionic cap copy android
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       # Set up Java for Gradle
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
-      - name: Check Java
-        run: java -version
+          java-version: 21
 
       # Grant execute permission for gradlew
       - name: Grant execute permission for gradlew
@@ -43,9 +42,7 @@ jobs:
       # Build APK
       - name: Clean and build APK
         working-directory: android
-        run: |
-          ./gradlew clean assembleRelease
-          ./gradlew assembleRelease
+        run: ./gradlew clean build
 
       # Upload APK as artifact
       - name: Upload APK
