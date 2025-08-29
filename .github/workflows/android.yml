@@ -3,8 +3,6 @@ name: Build Ionic APK
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
 
 jobs:
   build:
@@ -21,14 +19,13 @@ jobs:
           node-version: 20
 
       # Install dependencies
-      - name: Install npm dependencies
-        run: npm ci
-
-      # Build Ionic/Vite web assets
       - name: Build Ionic App
         run: |
+          npm ci
           npx ionic build --prod
           npx cap sync android
+        env:
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       # Set up Java for Gradle
       - name: Set up JDK 17

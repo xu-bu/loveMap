@@ -15,6 +15,7 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { IonicVue, IonApp, IonHeader, IonToolbar, IonTitle, IonContent } from "@ionic/vue";
+import { Geolocation } from '@capacitor/geolocation';
 
 // Components registration (for template)
 const components = { IonApp, IonHeader, IonToolbar, IonTitle, IonContent };
@@ -38,33 +39,21 @@ const loadGoogleMaps = (): Promise<void> => {
 };
 
 onMounted(async () => {
+  await loadGoogleMaps();
+
+  let center = { lat: 25.0330, lng: 121.5654 }; // default location
+
   try {
-    await loadGoogleMaps();
-
-    let center = { lat: 25.0330, lng: 121.5654 }; // default location (Taipei 101)
-
-    // Try to get user location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          center = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          };
-          initMap(center);
-        },
-        () => {
-          console.warn("Geolocation denied or unavailable, using default location");
-          initMap(center);
-        }
-      );
-    } else {
-      console.warn("Geolocation not supported, using default location");
-      initMap(center);
-    }
+    const position = await Geolocation.getCurrentPosition();
+    center = {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    };
   } catch (err) {
-    console.error(err);
+    console.warn('Could not get location, using default', err);
   }
+
+  initMap(center);
 });
 
 // Initialize Google Map
