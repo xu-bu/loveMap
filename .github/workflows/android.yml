@@ -22,9 +22,9 @@ jobs:
       - name: Build Ionic App
         run: |
           npm ci
-          ionic build
+          npx ionic build
           npx cap sync android
-          ionic cap copy android
+          npx ionic cap copy android
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
