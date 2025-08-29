@@ -1,9 +1,91 @@
 <template>
   <ion-app>
-    <ion-router-outlet />
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>My Map App</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <div id="map" style="width: 100%; height: 100%;"></div>
+    </ion-content>
   </ion-app>
 </template>
 
 <script setup lang="ts">
-import { IonApp, IonRouterOutlet } from '@ionic/vue';
+import { onMounted } from "vue";
+import { IonicVue, IonApp, IonHeader, IonToolbar, IonTitle, IonContent } from "@ionic/vue";
+
+// Components registration (for template)
+const components = { IonApp, IonHeader, IonToolbar, IonTitle, IonContent };
+
+const loadGoogleMaps = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if ((window as any).google) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${
+      import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    }`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject("Failed to load Google Maps");
+    document.head.appendChild(script);
+  });
+};
+
+onMounted(async () => {
+  try {
+    await loadGoogleMaps();
+
+    let center = { lat: 25.0330, lng: 121.5654 }; // default location (Taipei 101)
+
+    // Try to get user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          center = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          };
+          initMap(center);
+        },
+        () => {
+          console.warn("Geolocation denied or unavailable, using default location");
+          initMap(center);
+        }
+      );
+    } else {
+      console.warn("Geolocation not supported, using default location");
+      initMap(center);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+// Initialize Google Map
+const initMap = (center: { lat: number; lng: number }) => {
+  const map = new google.maps.Map(document.getElementById("map") as HTMLElement, {
+    center,
+    zoom: 14,
+  });
+
+  new google.maps.Marker({
+    position: center,
+    map,
+    title: "You are here",
+  });
+};
 </script>
+
+<style>
+/* Make sure map takes full screen inside ion-content */
+#map {
+  width: 100%;
+  height: 100%;
+}
+</style>
