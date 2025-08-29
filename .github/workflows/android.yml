@@ -39,9 +39,11 @@ jobs:
         run: chmod +x android/gradlew
 
       # Build APK
-      - name: Build APK
+      - name: Clean and build APK
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: |
+          ./gradlew clean
+          ./gradlew assembleRelease
 
       # Upload APK as artifact
       - name: Upload APK
