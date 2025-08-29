@@ -44,7 +44,7 @@ jobs:
       - name: Clean and build APK
         working-directory: android
         run: |
-          ./gradlew clean
+          ./gradlew clean assembleRelease
           ./gradlew assembleRelease
 
       # Upload APK as artifact
