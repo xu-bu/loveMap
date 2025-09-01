@@ -9,6 +9,8 @@ It will auto open android studio then `build apk` there
 
 ## Use gradle
 `npm run release`
+Then you can see apk in 
+`app/build/outputs/apk/<buildType>/app-<buildType>.apk`
 
 # How to run on web
 ```
