@@ -59,8 +59,6 @@ async function initMap(center: { lat: number; lng: number }, element: HTMLElemen
 }
 </script>
 
-
-
 <style>
 /* Make sure map takes full screen inside ion-content */
 #map {
