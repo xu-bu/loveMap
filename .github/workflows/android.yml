@@ -48,9 +48,24 @@ jobs:
         run: ./gradlew clean assembleRelease -P VITE_MAP_ID=${{ secrets.VITE_MAP_ID }}
       - name: Check folder structure
         run: ls -R android/app/build/outputs/apk/release
-      # Upload APK as artifact
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          tag_name: v1.0.0  
+          release_name: Release v1.0.0
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Upload APK to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          asset_name: app-release-unsigned.apk
+          asset_content_type: application/vnd.android.package-archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
