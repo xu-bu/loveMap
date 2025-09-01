@@ -6,7 +6,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -17,12 +16,11 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+      # cli has to be global otherwise cannot find it
       - name: Install Ionic
         run: npm install -g @ionic/cli
       - name: npm install
         run: npm ci
-      - name: ionic -v
-        run: ionic -v
       # Install dependencies
       - name: Build Ionic App
         run: |
@@ -31,7 +29,7 @@ jobs:
           ionic cap copy android
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-          MAP_ID: ${{ secrets.MAP_ID }}
+          VITE_MAP_ID: ${{ secrets.VITE_MAP_ID }}
 
       # Set up Java for Gradle
       - name: Set up JDK 21
@@ -53,5 +51,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
