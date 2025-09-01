@@ -1,37 +1,29 @@
 <template>
   <ion-app>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>My Map App</ion-title>
-      </ion-toolbar>
-    </ion-header>
-
     <ion-content>
-      <div id="map" style="width: 100%; height: 100%"></div>
+      <div ref="mapRef" style="width: 100%;  height: 100%"></div>
     </ion-content>
   </ion-app>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import {
-  IonicVue,
   IonApp,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
   IonContent,
 } from "@ionic/vue";
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+import { GoogleMap } from "@capacitor/google-maps";
+
+const mapRef = ref<HTMLElement | null>(null);
 
 onMounted(async () => {
   if (Capacitor.isNativePlatform()) {
-    // Request permissions only on native (iOS/Android)
     await Geolocation.requestPermissions();
   }
 
-  let center = { lat: 25.033, lng: 121.5654 }; // default
+  let center = { lat: 25.033, lng: 121.5654 }; // default (Taipei 101)
 
   try {
     const position = await Geolocation.getCurrentPosition();
@@ -43,31 +35,31 @@ onMounted(async () => {
     console.warn("Could not get location, using default", err);
   }
 
-  // Wait a tick to ensure ion-content layout is ready
-  setTimeout(() => initMap(center), 100);
+  // Ensure map container exists
+  if (mapRef.value) {
+    await initMap(center, mapRef.value);
+  }
 });
 
-const initMap = (center: { lat: number; lng: number }) => {
-  console.log(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
-  console.log(import.meta.env.VITE_MAP_ID);
-  // Create the map
-  const map = new google.maps.Map(
-    document.getElementById("map") as HTMLElement,
-    {
+async function initMap(center: { lat: number; lng: number }, element: HTMLElement) {
+  const map = await GoogleMap.create({
+    id: "my-map",
+    element,
+    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, // 👈 use API key, not map ID
+    config: {
       center,
       zoom: 14,
-      mapId: import.meta.env.VITE_MAP_ID, // Use your custom map ID from .env
-    }
-  );
-
-  // Add a marker using the modern API
-  const marker = new google.maps.marker.AdvancedMarkerElement({
-    position: center,
-    map,
-    title: "You are here",
+    },
   });
-};
+
+  // Example: Add a marker (plugin API supports this directly)
+  await map.addMarker({
+    coordinate: center,
+  });
+}
 </script>
+
+
 
 <style>
 /* Make sure map takes full screen inside ion-content */

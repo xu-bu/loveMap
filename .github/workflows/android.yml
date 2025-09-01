@@ -44,7 +44,7 @@ jobs:
       # Build APK
       - name: Clean and build APK
         working-directory: android
-        run: ./gradlew clean build
+        run: ./gradlew clean assembleRelease -P VITE_MAP_ID=${{ secrets.VITE_MAP_ID }}
 
       # Upload APK as artifact
       - name: Upload APK
