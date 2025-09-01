@@ -47,10 +47,10 @@ jobs:
         working-directory: android
         run: ./gradlew clean assembleRelease -P VITE_MAP_ID=${{ secrets.VITE_MAP_ID }}
       - name: Check folder structure
-        run: ls -R android/app/build/outputs
+        run: ls -R android/app/build/outputs/apk/release
       # Upload APK as artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
