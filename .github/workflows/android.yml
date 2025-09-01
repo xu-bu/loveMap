@@ -17,12 +17,15 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-
+      - name: Install Ionic
+        run: npm install -g @ionic/cli
+      - name: npm install
+        run: npm ci
+      - name: ionic -v
+        run: ionic -v
       # Install dependencies
       - name: Build Ionic App
         run: |
-          npm ci
-          ionic -v
           ionic build
           ionic cap sync android
           ionic cap copy android
