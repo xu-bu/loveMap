@@ -22,11 +22,13 @@ jobs:
       - name: Build Ionic App
         run: |
           npm ci
+          npx ionic -v
           npx ionic build
           npx cap sync android
           npx ionic cap copy android
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          MAP_ID: ${{ secrets.MAP_ID }}
 
       # Set up Java for Gradle
       - name: Set up JDK 21

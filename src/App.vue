@@ -48,13 +48,15 @@ onMounted(async () => {
 });
 
 const initMap = (center: { lat: number; lng: number }) => {
+  console.log(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+  console.log(import.meta.env.VITE_MAP_ID);
   // Create the map
   const map = new google.maps.Map(
     document.getElementById("map") as HTMLElement,
     {
       center,
       zoom: 14,
-      mapId: import.meta.env.MAP_ID, // Use your custom map ID from .env
+      mapId: import.meta.env.VITE_MAP_ID, // Use your custom map ID from .env
     }
   );
 
