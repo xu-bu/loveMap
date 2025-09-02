@@ -1,4 +1,6 @@
 # How to release
+## How to get release upload url
+`gh release view [tagName] --json uploadUrl` i.e. this project's tagName is `v1.0.0`
 This project uses github actions to CI, alternative ways could be
 
 ## Use android studio 
@@ -32,3 +34,6 @@ signingConfigs {
 }
 ```
 into `android/app/build.gradle` inside `android{}` section
+add
+`signingConfig signingConfigs.release` 
+into `android.buildTypes.release
