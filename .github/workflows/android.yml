@@ -51,8 +51,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      - name: Check folder structure
-        run: ls -R android/app/build/outputs/apk/release
+
       # - name: Create Release
       #   id: create_release
       #   uses: actions/create-release@v1

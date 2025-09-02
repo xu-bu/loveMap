@@ -45,12 +45,13 @@ async function initMap(center: { lat: number; lng: number }, element: HTMLElemen
   const map = await GoogleMap.create({
     id: "my-map",
     element,
-    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, // 👈 use API key, not map ID
+    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     config: {
       center,
       zoom: 14,
     },
-  });
+    mapId: import.meta.env.VITE_MAP_ID,
+  } as any);
 
   // Example: Add a marker (plugin API supports this directly)
   await map.addMarker({
