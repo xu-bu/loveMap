@@ -43,9 +43,14 @@ jobs:
         run: chmod +x android/gradlew
 
       # Build APK
-      - name: Clean and build APK
+      - name: Build APK
         working-directory: android
-        run: ./gradlew clean assembleRelease -P VITE_MAP_ID=${{ secrets.VITE_MAP_ID }}
+        run: ./gradlew assembleRelease
+        env:
+          VITE_MAP_ID: ${{ secrets.VITE_MAP_ID }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       - name: Check folder structure
         run: ls -R android/app/build/outputs/apk/release
       - name: Create Release

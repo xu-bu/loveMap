@@ -17,6 +17,15 @@ android {
         }
         resValue "string", "google_maps_map_id", project.findProperty("VITE_MAP_ID") ?: ""
     }
+    signingConfigs {
+    release {
+        storeFile file("my-release-key.jks")
+        storePassword System.getenv("KEYSTORE_PASSWORD")   // keystore 密码
+        keyAlias System.getenv("KEY_ALIAS")               // keystore 里 key 的名字
+        keyPassword System.getenv("KEY_PASSWORD")         // 这个 key 的密码
+    }
+}
+
     buildTypes {
         release {
             minifyEnabled false
