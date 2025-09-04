@@ -1,7 +1,8 @@
 <template>
   <ion-app>
-    <ion-content>
-      <div ref="mapRef" style="width: 100%;  height: 100%"></div>
+    <ion-content :fullscreen="true">
+      <capacitor-google-map ref="mapRef"
+        style="display: inline-block; width: 100%; height: 100vh;"></capacitor-google-map>
     </ion-content>
   </ion-app>
 </template>
@@ -24,16 +25,11 @@ onMounted(async () => {
   }
 
   let center = { lat: 25.033, lng: 121.5654 }; // default (Taipei 101)
-
-  try {
-    const position = await Geolocation.getCurrentPosition();
-    center = {
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-    };
-  } catch (err) {
-    console.warn("Could not get location, using default", err);
-  }
+  const position = await Geolocation.getCurrentPosition();
+  center = {
+    lat: position.coords.latitude,
+    lng: position.coords.longitude,
+  };
 
   // Ensure map container exists
   if (mapRef.value) {
