@@ -62,8 +62,8 @@ jobs:
       #     prerelease: false
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-      - name: Get Release Upload URL
-        id: get_release
+      - name: Get Latest Release Tag
+        id: get_tag
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PAT_TOKEN }}
@@ -72,21 +72,12 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            // Remove the URI template part and add the name parameter
-            const baseUrl = release.data.upload_url.replace(/\{\?.*\}$/, '');
-            const uploadUrl = `${baseUrl}?name=app-release.apk`;
-            core.setOutput('upload_url', uploadUrl);
-
-      - name: Debug Upload URL
-        run: echo ${{ steps.get_release.outputs.upload_url }}
+            core.setOutput('tag_name', release.data.tag_name);
 
       - name: Upload APK to Release
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: android/app/build/outputs/apk/release/app-release.apk
-          asset_name: app-release.apk
-          asset_content_type: application/vnd.android.package-archive
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+          tag_name: ${{ steps.get_tag.outputs.tag_name }}
+          token: ${{ secrets.PAT_TOKEN }}
 
