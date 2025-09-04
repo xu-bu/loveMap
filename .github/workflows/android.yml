@@ -72,7 +72,10 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            core.setOutput('upload_url', release.data.upload_url);
+            // Remove the URI template part and add the name parameter
+            const baseUrl = release.data.upload_url.replace(/\{\?.*\}$/, '');
+            const uploadUrl = `${baseUrl}?name=app-release.apk`;
+            core.setOutput('upload_url', uploadUrl);
 
       - name: Debug Upload URL
         run: echo ${{ steps.get_release.outputs.upload_url }}
