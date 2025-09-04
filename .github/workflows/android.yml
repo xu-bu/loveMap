@@ -16,6 +16,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
+      - name: Inject API Key into Manifest
+        run: |
+          sed -i 's/PLACEHOLDER_API_KEY/${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}/g' android/app/src/main/AndroidManifest.xml
+          cat android/app/src/main/AndroidManifest.xml
       # cli has to be global otherwise cannot find it
       - name: Install Ionic
         run: npm install -g @ionic/cli
@@ -24,7 +28,7 @@ jobs:
       # Install dependencies
       - name: Build Ionic App
         run: |
-          ionic build
+          ionic build --prod
           ionic cap sync android
           ionic cap copy android
         env:
@@ -47,8 +51,6 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease
         env:
-          VITE_MAP_ID: ${{ secrets.VITE_MAP_ID }}
-          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}

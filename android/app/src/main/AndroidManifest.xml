@@ -10,9 +10,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <meta-data
+        <meta-data                  
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_map_id" />
+            android:value="PLACEHOLDER_API_KEY" />
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
             android:name=".MainActivity"

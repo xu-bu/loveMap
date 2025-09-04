@@ -41,7 +41,7 @@ async function initMap(center: { lat: number; lng: number }, element: HTMLElemen
   const map = await GoogleMap.create({
     id: "my-map",
     element,
-    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    apiKey: "AIzaSyC2YcYyvdZId7KykZDSSj_6KOklnuTtG6Y",
     config: {
       center,
       zoom: 14,
