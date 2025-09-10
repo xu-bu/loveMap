@@ -271,7 +271,6 @@ export const useCreateLoveSpot = () => {
       const pathParts = url.pathname.split('/')
       const fileName = pathParts[pathParts.length - 1]
       const filePath = `location-photos/${fileName}`
-      
       const { error } = await supabase.storage
         .from('photos')
         .remove([filePath])
