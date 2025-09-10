@@ -1,83 +1,9 @@
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-
-const route = useRoute()
-
-// Get coordinates from query parameters
-const lat = computed(() => route.query.lat)
-const lng = computed(() => route.query.lng)
-
-// Address lookup
-const address = ref('')
-const loading = ref(true)
-
-// Reverse geocode to get address
-const getAddress = async () => {
-  if (!lat.value || !lng.value) return
-  
-  try {
-    loading.value = true
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat.value},${lng.value}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
-    )
-    const data = await response.json()
-    
-    if (data.results && data.results.length > 0) {
-      address.value = data.results[0].formatted_address
-    } else {
-      address.value = 'Address not found'
-    }
-  } catch (error) {
-    console.error('Error getting address:', error)
-    address.value = 'Unable to load address'
-  } finally {
-    loading.value = false
-  }
-}
-
-// Copy coordinates to clipboard
-const copyCoordinates = async () => {
-  const coordString = `${lat.value}, ${lng.value}`
-  try {
-    await navigator.clipboard.writeText(coordString)
-    alert('Coordinates copied to clipboard!')
-  } catch (error) {
-    console.error('Failed to copy coordinates:', error)
-    // Fallback for older browsers
-    const textArea = document.createElement('textarea')
-    textArea.value = coordString
-    document.body.appendChild(textArea)
-    textArea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textArea)
-    alert('Coordinates copied to clipboard!')
-  }
-}
-
-// Create love spot at this location
-const createLoveSpot = () => {
-  console.log(`Creating love spot at ${lat.value}, ${lng.value}`);
-  
-}
-
-// Open in device's maps app
-const openInMaps = () => {
-  const url = `https://www.google.com/maps?q=${lat.value},${lng.value}`
-  window.open(url, '_blank')
-}
-
-onMounted(() => {
-  getAddress()
-})
-</script>
-
 <template>
   <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
       <h1>Location Details</h1>
       <button 
-        @click="$router.go(-1)" 
+        @click="router.go(-1)" 
         style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;"
       >
         ← Back
@@ -119,14 +45,91 @@ onMounted(() => {
       </div>
 
       <div v-else-if="address" style="background: #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; color: #495057;">🏠 Address</h3>
+        <h3 style="margin-top: 0; color: #495057;">🏠 Spot</h3>
         <p style="margin: 0; font-size: 16px;">{{ address }}</p>
+      </div>
+
+      <!-- Notes & Photos Section -->
+      <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #ffeaa7;">
+        <h3 style="margin-top: 0; color: #856404;">📝 Love story & Photos</h3>
+        
+        <!-- Text Area for Notes -->
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #495057;">
+            Save your memory:
+          </label>
+          <textarea 
+            v-model="content"
+            placeholder="Write something about this location..."
+            style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; font-family: inherit; font-size: 14px;"
+          ></textarea>
+        </div>
+
+        <!-- Photo Upload Section -->
+        <div style="margin-bottom: 20px;">
+          <label 
+            for="photoInput"
+            style="display: block; margin-bottom: 8px; font-weight: bold; color: #495057; cursor: pointer;"
+          >
+            📸 Add photos:
+          </label>
+          
+          <!-- File Input -->
+          <input 
+            id="photoInput"
+            type="file" 
+            @change="handleFileSelect"
+            multiple
+            accept="image/*"
+            :disabled="uploading"
+            style="width: 100%; padding: 10px; border: 2px dashed #17a2b8; border-radius: 4px; background: #f8f9fa; cursor: pointer;"
+          />
+          
+          <!-- Upload Progress -->
+          <div v-if="uploadProgress > 0 && uploadProgress < 100" style="margin-top: 10px;">
+            <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
+              <div 
+                style="height: 100%; background: #28a745; transition: width 0.3s ease;"
+                :style="{ width: uploadProgress + '%' }"
+              ></div>
+            </div>
+            <div style="font-size: 12px; color: #6c757d; margin-top: 5px;">
+              Uploading... {{ uploadProgress }}%
+            </div>
+          </div>
+        </div>
+
+        <!-- Uploaded Photos Display -->
+        <div v-if="uploadedPhotos.length > 0" style="margin-bottom: 20px;">
+          <h4 style="margin-bottom: 10px; color: #495057;">Uploaded Photos:</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
+            <div 
+              v-for="(photo, index) in uploadedPhotos" 
+              :key="index"
+              style="position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 2px solid #dee2e6;"
+            >
+              <img 
+                :src="photo.url" 
+                :alt="`Photo ${index + 1}`"
+                style="width: 100%; height: 100%; object-fit: cover;"
+              />
+              <!-- Delete button -->
+              <button 
+                @click="removePhoto(index)"
+                style="position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;"
+                title="Remove photo"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Action Buttons -->
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <button 
-          @click="createLoveSpot"
+          @click="saveToDatabase"
           style="flex: 1; min-width: 200px; padding: 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
         >
           💖 Create Love Spot Here
@@ -139,18 +142,35 @@ onMounted(() => {
           📱 Open in Maps App
         </button>
       </div>
-
-      <!-- Additional Info -->
-      <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px;">
-        <h4 style="margin-top: 0; color: #856404;">💡 What you can do:</h4>
-        <ul style="margin: 0; padding-left: 20px; color: #856404;">
-          <li>Create a love spot at this location with memories</li>
-          <li>Copy coordinates to share with someone special</li>
-          <li>Open in your device's maps app for navigation</li>
-          <li>View the exact location on the map above</li>
-        </ul>
-      </div>
     </div>
   </div>
 </template>
 
+<script setup lang="ts">
+import { useCreateLoveSpot } from './createLoveSpot'
+
+// Destructure all the reactive values and functions from the composable
+const {
+  // Router
+  router,
+  
+  // Computed values
+  lat,
+  lng,
+  
+  // Reactive data
+  address,
+  loading,
+  content,
+  uploadedPhotos,
+  uploading,
+  uploadProgress,
+  
+  // Functions
+  copyCoordinates,
+  handleFileSelect,
+  removePhoto,
+  saveToDatabase,
+  openInMaps
+} = useCreateLoveSpot()
+</script>

@@ -41,6 +41,19 @@ function handleMapClick(event) {
   router.push({ name: "CreateLoveSpot", query: { lat, lng } });
 }
 
+function createAtCurrentLocation() {
+  if (location.value) {
+    // Create a mock event object similar to what handleMapClick expects
+    const mockEvent = {
+      latLng: {
+        lat: () => location.value?.latitude,
+        lng: () => location.value?.longitude
+      }
+    };
+    handleMapClick(mockEvent);
+  }
+}
+
 onMounted(() => {
   getCurrentLocation();
 });
@@ -70,7 +83,7 @@ onMounted(() => {
   </div>
 
   <GoogleMap v-else-if="location" :apiKey="VITE_GOOGLE_MAPS_API_KEY" :mapId="VITE_MAP_ID"
-    style="width: 100%; height: 100vh" :center="{ lat: location.latitude, lng: location.longitude }" :zoom="10"
+    style="width: 100%; height: 100vh" :center="{ lat: location.latitude, lng: location.longitude }" :zoom="5"
     @click="handleMapClick">
     <!-- Current location marker -->
     <AdvancedMarker :options="{
@@ -93,8 +106,8 @@ onMounted(() => {
         <h3>Your Location</h3>
         <div>Lat: {{ location.latitude.toFixed(6) }}</div>
         <div>Lng: {{ location.longitude.toFixed(6) }}</div>
-        <button @click="getCurrentLocation" style="margin-top: 5px">
-          Refresh
+        <button @click="createAtCurrentLocation" style="margin-top: 5px">
+          Create
         </button>
       </InfoWindow>
     </AdvancedMarker>
