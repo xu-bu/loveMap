@@ -1,176 +1,569 @@
-<template>
-  <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-      <h1>Location Details</h1>
-      <button 
-        @click="router.go(-1)" 
-        style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;"
-      >
-        ← Back
-      </button>
-    </div>
-    
-    <div v-if="!lat || !lng" style="text-align: center; color: #dc3545;">
-      <h3>No coordinates provided</h3>
-      <p>Please click on a location from the map to view details.</p>
-    </div>
-    
-    <div v-else>
-      <!-- Coordinates Info -->
-      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; color: #495057;">📍 Coordinates</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-          <div>
-            <strong>Latitude:</strong><br>
-            <span style="font-family: monospace; font-size: 14px; color: #007bff;">{{ lat }}</span>
-          </div>
-          <div>
-            <strong>Longitude:</strong><br>
-            <span style="font-family: monospace; font-size: 14px; color: #007bff;">{{ lng }}</span>
-          </div>
-        </div>
-        
-        <!-- Copy coordinates button -->
-        <button 
-          @click="copyCoordinates" 
-          style="margin-top: 15px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
-        >
-          📋 Copy Coordinates
-        </button>
-      </div>
-
-      <!-- Address Info -->
-      <div v-if="loading" style="text-align: center; padding: 20px;">
-        <div>🔄 Loading address information...</div>
-      </div>
-
-      <div v-else-if="address" style="background: #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; color: #495057;">🏠 Spot</h3>
-        <p style="margin: 0; font-size: 16px;">{{ address }}</p>
-      </div>
-
-      <!-- Notes & Photos Section -->
-      <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #ffeaa7;">
-        <h3 style="margin-top: 0; color: #856404;">📝 Love story & Photos</h3>
-        
-        <!-- Text Area for Notes -->
-        <div style="margin-bottom: 20px;">
-          <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #495057;">
-            Save your memory:
-          </label>
-          <textarea 
-            v-model="content"
-            placeholder="Write something about this location..."
-            style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; font-family: inherit; font-size: 14px;"
-          ></textarea>
-        </div>
-
-        <!-- Photo Upload Section -->
-        <div style="margin-bottom: 20px;">
-          <label 
-            for="photoInput"
-            style="display: block; margin-bottom: 8px; font-weight: bold; color: #495057; cursor: pointer;"
-          >
-            📸 Add photos:
-          </label>
-          
-          <!-- File Input -->
-          <input 
-            id="photoInput"
-            type="file" 
-            @change="handleFileSelect"
-            multiple
-            accept="image/*"
-            :disabled="uploading"
-            style="width: 100%; padding: 10px; border: 2px dashed #17a2b8; border-radius: 4px; background: #f8f9fa; cursor: pointer;"
-          />
-          
-          <!-- Upload Progress -->
-          <div v-if="uploadProgress > 0 && uploadProgress < 100" style="margin-top: 10px;">
-            <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
-              <div 
-                style="height: 100%; background: #28a745; transition: width 0.3s ease;"
-                :style="{ width: uploadProgress + '%' }"
-              ></div>
-            </div>
-            <div style="font-size: 12px; color: #6c757d; margin-top: 5px;">
-              Uploading... {{ uploadProgress }}%
-            </div>
-          </div>
-        </div>
-
-        <!-- Uploaded Photos Display -->
-        <div v-if="uploadedPhotos.length > 0" style="margin-bottom: 20px;">
-          <h4 style="margin-bottom: 10px; color: #495057;">Uploaded Photos:</h4>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
-            <div 
-              v-for="(photo, index) in uploadedPhotos" 
-              :key="index"
-              style="position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 2px solid #dee2e6;"
-            >
-              <img 
-                :src="photo.url" 
-                :alt="`Photo ${index + 1}`"
-                style="width: 100%; height: 100%; object-fit: cover;"
-              />
-              <!-- Delete button -->
-              <button 
-                @click="removePhoto(index)"
-                style="position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;"
-                title="Remove photo"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <button 
-          @click="saveToDatabase"
-          style="flex: 1; min-width: 200px; padding: 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-        >
-          💖 Create Love Spot Here
-        </button>
-        
-        <button 
-          @click="openInMaps"
-          style="flex: 1; min-width: 200px; padding: 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;"
-        >
-          📱 Open in Maps App
-        </button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { useCreateLoveSpot } from './createLoveSpot'
+import { useCreateLoveSpot } from '../composables/createLoveSpot' // Adjust path as needed
 
-// Destructure all the reactive values and functions from the composable
 const {
-  // Router
   router,
-  
-  // Computed values
   lat,
   lng,
-  
-  // Reactive data
   address,
   loading,
   content,
   uploadedPhotos,
   uploading,
   uploadProgress,
-  
-  // Functions
   copyCoordinates,
   handleFileSelect,
   removePhoto,
   saveToDatabase,
   openInMaps
 } = useCreateLoveSpot()
+
+const goBack = () => {
+  router.back()
+}
 </script>
+
+<template>
+  <div class="create-love-spot">
+    <!-- Header -->
+    <header class="header">
+      <button @click="goBack" class="back-btn">
+        <span>←</span> Back
+      </button>
+      <h1>💖 Create Love Spot</h1>
+      <button @click="openInMaps" class="maps-btn">
+        🗺️ Open Maps
+      </button>
+    </header>
+
+    <!-- Scrollable Content -->
+    <div class="scrollable-content">
+      <!-- Location Section -->
+      <section class="section location-section">
+        <h2>📍 Location</h2>
+        
+        <!-- Coordinates Display -->
+        <div class="coordinates-card">
+          <div class="coordinates-info">
+            <div class="coordinate-item">
+              <label>Latitude:</label>
+              <span>{{ lat }}</span>
+            </div>
+            <div class="coordinate-item">
+              <label>Longitude:</label>
+              <span>{{ lng }}</span>
+            </div>
+          </div>
+          <button @click="copyCoordinates" class="copy-btn">
+            📋 Copy Coordinates
+          </button>
+        </div>
+
+        <!-- Address -->
+        <div class="address-card">
+          <h3>Address</h3>
+          <div v-if="loading" class="loading">
+            <div class="spinner">🔄</div>
+            <span>Finding address...</span>
+          </div>
+          <p v-else class="address-text">{{ address }}</p>
+        </div>
+      </section>
+
+      <!-- Photos Section -->
+      <section class="section photos-section">
+        <h2>📸 Photos</h2>
+        
+        <!-- Upload Area -->
+        <div class="upload-area">
+          <input
+            id="photoInput"
+            type="file"
+            multiple
+            accept="image/*"
+            @change="handleFileSelect"
+            class="file-input"
+          />
+          <label for="photoInput" class="upload-label">
+            <div class="upload-content">
+              <div class="upload-icon">📷</div>
+              <span>Choose Photos</span>
+              <small>Support multiple photos</small>
+            </div>
+          </label>
+        </div>
+
+        <!-- Upload Progress -->
+        <div v-if="uploading" class="upload-progress">
+          <div class="progress-bar">
+            <div 
+              class="progress-fill" 
+              :style="{ width: `${uploadProgress}%` }"
+            ></div>
+          </div>
+          <span class="progress-text">{{ uploadProgress }}% uploaded</span>
+        </div>
+
+        <!-- Photo Gallery -->
+        <div v-if="uploadedPhotos.length > 0" class="photo-gallery">
+          <div 
+            v-for="(photo, index) in uploadedPhotos" 
+            :key="index" 
+            class="photo-item"
+          >
+            <img :src="photo.url" :alt="`Photo ${index + 1}`" />
+            <button 
+              @click="removePhoto(index)" 
+              class="remove-photo-btn"
+            >
+              ❌
+            </button>
+            <div class="photo-date">
+              {{ new Date(photo.uploadedAt).toLocaleDateString() }}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Story Section -->
+      <section class="section story-section">
+        <h2>💕 Your Story</h2>
+        <div class="story-input-container">
+          <textarea
+            v-model="content"
+            placeholder="Tell the story of this special place... What makes it meaningful? What memories were made here?"
+            class="story-textarea"
+            rows="8"
+          ></textarea>
+          <div class="character-count">
+            {{ content.length }} characters
+          </div>
+        </div>
+      </section>
+
+      <!-- Action Buttons -->
+      <section class="section actions-section">
+        <div class="action-buttons">
+          <button 
+            @click="saveToDatabase" 
+            class="btn btn-primary"
+            :disabled="!content.trim() || uploadedPhotos.length === 0"
+          >
+            💾 Save Love Spot
+          </button>
+          <button @click="goBack" class="btn btn-secondary">
+            ← Cancel
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.create-love-spot {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #ffeef8 0%, #f0e6ff 100%);
+  font-family: "Arial", sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent body scroll */
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 182, 193, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  margin: 0;
+  color: #d63384;
+  font-size: 1.5rem;
+}
+
+.back-btn, .maps-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 20px;
+  background: #ff69b4;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.back-btn:hover, .maps-btn:hover {
+  background: #e91e63;
+  transform: translateY(-2px);
+}
+
+/* SCROLLABLE CONTENT - This is the key for scrolling */
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  height: calc(100vh - 80px); /* Subtract header height */
+  scroll-behavior: smooth;
+}
+
+/* Webkit scrollbar styling */
+.scrollable-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 105, 180, 0.5);
+  border-radius: 4px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 105, 180, 0.8);
+}
+
+.section {
+  margin: 2rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 182, 193, 0.2);
+  box-shadow: 0 4px 20px rgba(255, 105, 180, 0.1);
+}
+
+.section h2 {
+  margin: 0 0 1.5rem 0;
+  color: #d63384;
+  font-size: 1.3rem;
+}
+
+.coordinates-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.coordinates-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.coordinate-item {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.coordinate-item label {
+  font-weight: bold;
+  color: #666;
+  min-width: 70px;
+}
+
+.coordinate-item span {
+  color: #333;
+  font-family: monospace;
+}
+
+.copy-btn {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.copy-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.address-card {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.address-card h3 {
+  margin: 0 0 1rem 0;
+  color: #495057;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.address-text {
+  margin: 0;
+  color: #333;
+  line-height: 1.5;
+}
+
+.upload-area {
+  margin-bottom: 1rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-label {
+  display: block;
+  cursor: pointer;
+  border: 2px dashed #ff69b4;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  background: rgba(255, 105, 180, 0.05);
+  transition: all 0.3s ease;
+}
+
+.upload-label:hover {
+  border-color: #e91e63;
+  background: rgba(255, 105, 180, 0.1);
+  transform: translateY(-2px);
+}
+
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-icon {
+  font-size: 2rem;
+}
+
+.upload-content span {
+  font-weight: bold;
+  color: #d63384;
+}
+
+.upload-content small {
+  color: #666;
+}
+
+.upload-progress {
+  margin: 1rem 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff69b4, #e91e63);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.photo-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.photo-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.photo-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+}
+
+.remove-photo-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.photo-date {
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center;
+}
+
+.story-input-container {
+  position: relative;
+}
+
+.story-textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.3s ease;
+}
+
+.story-textarea:focus {
+  outline: none;
+  border-color: #ff69b4;
+  box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.1);
+}
+
+.character-count {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  color: #666;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: #ff69b4;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #e91e63;
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.9);
+  color: #d63384;
+  border: 2px solid #ff69b4;
+}
+
+.btn-secondary:hover {
+  background: #ff69b4;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .header h1 {
+    font-size: 1.2rem;
+    order: 1;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .coordinates-card {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .section {
+    margin: 1rem;
+    padding: 1rem;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .photo-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  /* Adjust scrollable content height for mobile */
+  .scrollable-content {
+    height: calc(100vh - 120px);
+  }
+}
+</style>

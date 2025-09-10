@@ -1,7 +1,7 @@
 import { ref, computed, onMounted, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createClient, QueryResult, QueryData, QueryError  } from '@supabase/supabase-js'
 import { log } from '../utils/logger'
+import {getSupabaseClient} from '../services/db'
 
 // Types
 interface PhotoData {
@@ -32,18 +32,9 @@ interface Database {
   }
 }
 
-// Singleton Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-const supabase= createClient(supabaseUrl, supabaseAnonKey)
-
+const supabaseClient=getSupabaseClient()
 // Global table reference
-const table = supabase.from('loveMap')
+const table = supabaseClient.from('loveMap')
 
 export const useCreateLoveSpot = () => {
   const route = useRoute()
@@ -168,7 +159,7 @@ export const useCreateLoveSpot = () => {
     const fileName = `location-photos/${timestamp}-${randomString}.${fileExtension}`
     
     // Upload file to Supabase Storage
-    const { error } = await supabase.storage
+    const { error } = await supabaseClient.storage
       .from('photos') // Make sure you have a 'photos' bucket in Supabase Storage
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -180,7 +171,7 @@ export const useCreateLoveSpot = () => {
     }
     
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseClient.storage
       .from('photos')
       .getPublicUrl(fileName)
     
@@ -271,7 +262,7 @@ export const useCreateLoveSpot = () => {
       const pathParts = url.pathname.split('/')
       const fileName = pathParts[pathParts.length - 1]
       const filePath = `location-photos/${fileName}`
-      const { error } = await supabase.storage
+      const { error } = await supabaseClient.storage
         .from('photos')
         .remove([filePath])
       
