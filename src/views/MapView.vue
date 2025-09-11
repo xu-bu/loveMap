@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { GoogleMap, AdvancedMarker, InfoWindow } from "vue3-google-map";
 import { onMounted } from "vue";
-import { useMap } from "../composables/mapView"; // Adjust path as needed
+import { useMap } from "../composables/mapView";
 
 const {
   VITE_GOOGLE_MAPS_API_KEY,

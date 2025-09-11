@@ -40,13 +40,17 @@ export function useMap() {
         log(location.value);
       },
       (err) => {
-        error.value = err.message;
+        // error.value = err.message;
+        location.value = {
+          latitude: 39.95047718713052,
+          longitude: 116.4671802520752,
+        };
         loading.value = false;
       },
       {
         enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0,
+        timeout: 3000,
+        maximumAge: 1000,
       }
     );
   };

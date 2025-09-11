@@ -1,2 +1,26 @@
 /* For information on how to create your own theme, please see:
 http://ionicframework.com/docs/theming/ */
+/* Add this to src/theme/variables.css */
+
+/* Ensure body can scroll naturally */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: visible !important;
+  height: auto !important;
+  position: static !important;
+  min-height: 100vh; /* Allow full height but can expand */
+}
+
+/* Make sure the app container doesn't constrain */
+#app {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+  position: static !important;
+}
+
+/* Remove any viewport constraints that might interfere */
+* {
+  box-sizing: border-box;
+}

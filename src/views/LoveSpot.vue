@@ -39,88 +39,85 @@ const {
         <button @click="goToMap" class="map-btn">📍 View on Map</button>
       </header>
 
-      <!-- Scrollable Content -->
-      <div class="scrollable-content">
-        <!-- Photo Gallery -->
-        <div
-          v-if="loveSpot.photos && loveSpot.photos.length > 0"
-          class="photo-gallery"
-        >
-          <div class="photo-container">
-            <img
-              :src="loveSpot.photos[currentPhotoIndex]"
-              :alt="`Love spot photo ${currentPhotoIndex + 1}`"
-              class="main-photo"
-            />
+      <!-- Photo Gallery -->
+      <div
+        v-if="loveSpot.photos && loveSpot.photos.length > 0"
+        class="photo-gallery"
+      >
+        <div class="photo-container">
+          <img
+            :src="loveSpot.photos[currentPhotoIndex]"
+            :alt="`Love spot photo ${currentPhotoIndex + 1}`"
+            class="main-photo"
+          />
 
-            <!-- Photo Navigation -->
-            <div v-if="loveSpot.photos.length > 1" class="photo-nav">
-              <button @click="previousPhoto" class="nav-btn prev-btn">‹</button>
-              <div class="photo-counter">
-                {{ currentPhotoIndex + 1 }} / {{ loveSpot.photos.length }}
-              </div>
-              <button @click="nextPhoto" class="nav-btn next-btn">›</button>
+          <!-- Photo Navigation -->
+          <div v-if="loveSpot.photos.length > 1" class="photo-nav">
+            <button @click="previousPhoto" class="nav-btn prev-btn">‹</button>
+            <div class="photo-counter">
+              {{ currentPhotoIndex + 1 }} / {{ loveSpot.photos.length }}
             </div>
-          </div>
-
-          <!-- Photo Thumbnails -->
-          <div v-if="loveSpot.photos.length > 1" class="thumbnails">
-            <img
-              v-for="(photo, index) in loveSpot.photos"
-              :key="index"
-              :src="photo"
-              :alt="`Thumbnail ${index + 1}`"
-              :class="['thumbnail', { active: index === currentPhotoIndex }]"
-              @click="currentPhotoIndex = index"
-            />
+            <button @click="nextPhoto" class="nav-btn next-btn">›</button>
           </div>
         </div>
 
-        <!-- Content Section -->
-        <div class="content-section">
-          <!-- Address -->
-          <div class="address-section">
-            <h2>📍 Location</h2>
-            <p class="address">{{ loveSpot.address }}</p>
-            <div class="coordinates">
-              <small
-                >{{ loveSpot.coordinates.lat.toFixed(6) }},
-                {{ loveSpot.coordinates.lng.toFixed(6) }}</small
-              >
-            </div>
-          </div>
+        <!-- Photo Thumbnails -->
+        <div v-if="loveSpot.photos.length > 1" class="thumbnails">
+          <img
+            v-for="(photo, index) in loveSpot.photos"
+            :key="index"
+            :src="photo"
+            :alt="`Thumbnail ${index + 1}`"
+            :class="['thumbnail', { active: index === currentPhotoIndex }]"
+            @click="currentPhotoIndex = index"
+          />
+        </div>
+      </div>
 
-          <!-- Story/Content -->
-          <div class="story-section">
-            <h2>💕 Our Story</h2>
-            <div class="story-content">
-              <p>{{ loveSpot.content }}</p>
-            </div>
-          </div>
-
-          <!-- Created Date -->
-          <div v-if="loveSpot.created_at" class="date-section">
-            <h3>✨ Created</h3>
-            <p class="created-date">{{ formatDate(loveSpot.created_at) }}</p>
+      <!-- Content Section -->
+      <div class="content-section">
+        <!-- Address -->
+        <div class="address-section">
+          <h2>📍 Location</h2>
+          <p class="address">{{ loveSpot.address }}</p>
+          <div class="coordinates">
+            <small
+              >{{ loveSpot.coordinates.lat.toFixed(6) }},
+              {{ loveSpot.coordinates.lng.toFixed(6) }}</small
+            >
           </div>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-          <button @click="goToMap" class="btn btn-primary">🗺️ View on Map</button>
-          <button @click="goBack" class="btn btn-secondary">← Back to Map</button>
+        <!-- Story/Content -->
+        <div class="story-section">
+          <h2>💕 Our Story</h2>
+          <div class="story-content">
+            <p>{{ loveSpot.content }}</p>
+          </div>
         </div>
+
+        <!-- Created Date -->
+        <div v-if="loveSpot.created_at" class="date-section">
+          <h3>✨ Created</h3>
+          <p class="created-date">{{ formatDate(loveSpot.created_at) }}</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-buttons">
+        <button @click="goToMap" class="btn btn-primary">🗺️ View on Map</button>
+        <button @click="goBack" class="btn btn-secondary">← Back to Map</button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Completely natural flow - no height restrictions */
 .love-spot-detail {
-  height: 100vh; /* Changed from min-height to height */
   background: linear-gradient(135deg, #ffeef8 0%, #f0e6ff 100%);
   font-family: "Arial", sans-serif;
-  overflow: hidden; /* Prevent body scroll, let inner content scroll */
+  padding-bottom: 2rem; /* Add bottom padding for spacing */
 }
 
 .loading-container,
@@ -129,7 +126,7 @@ const {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh; /* Changed from min-height to height */
+  min-height: 100vh;
   padding: 2rem;
   text-align: center;
 }
@@ -154,10 +151,8 @@ const {
   margin-bottom: 1rem;
 }
 
+/* No height restrictions - let content flow naturally */
 .love-spot-content {
-  height: 100vh; /* Full height container */
-  display: flex;
-  flex-direction: column;
   max-width: 800px;
   margin: 0 auto;
 }
@@ -170,14 +165,9 @@ const {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 182, 193, 0.3);
+  position: sticky;
+  top: 0;
   z-index: 100;
-  flex-shrink: 0; /* Prevent header from shrinking */
-}
-
-.scrollable-content {
-  flex: 1; /* Take remaining space */
-  overflow-y: auto; /* Enable scrolling */
-  padding-bottom: 20px; /* Add bottom padding for better UX */
 }
 
 .header h1 {
@@ -334,6 +324,7 @@ const {
   gap: 1rem;
   padding: 2rem;
   justify-content: center;
+  margin-bottom: 2rem; /* Extra bottom margin */
 }
 
 .btn {
