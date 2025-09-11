@@ -21,7 +21,11 @@ ionic build (if code changed)
 ionic serve
 ```
 # How to sign
-Run `keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias release-key` to generate `my-release-key.jks` and put it into `/android/app`, this file can store multiple key, so alias is the unique symbol for each key. `-keystore` means keystore will also use the key password you provide later (it's like the whole keystore needs a password and each key also needs password)
+Run `keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias release-key` to generate `my-release-key.jks` and put it into `/android/app`.
+
+This file can store multiple key, so alias is the unique symbol for each key (i.e. here we created a key named `release-key`). `-keystore` means keystore will also use the key password you provide later (it's like the whole keystore needs a password and each key also needs password)
+
+To check generated keys, run `keytool -v -list -keystore  my-release-key.jks`
 Then add 
 ```
 signingConfigs {
