@@ -1,6 +1,6 @@
 import {
   PlaceDetailsResponse,
-  AutocompleteResponse,
+  SuggestionsList,
 } from "../types/interfaces";
 
 // Internal Places API Service Class
@@ -11,7 +11,7 @@ export class PlacesApiService {
   async autocomplete(
     input: string,
     location?: { lat: number; lng: number }
-  ): Promise<AutocompleteResponse> {
+  ): Promise<SuggestionsList> {
     const url = new URL(`${this.baseUrl}/places:autocomplete`);
 
     const requestBody = {
@@ -40,10 +40,12 @@ export class PlacesApiService {
         throw new Error(`Places API error: ${response.status}`);
       }
 
-      return await response.json();
+      const suggestionsList: SuggestionsList = await response.json();
+
+      return suggestionsList;
     } catch (error) {
       console.error("Autocomplete error:", error);
-      return { predictions: [], status: "ERROR" };
+      return {} as SuggestionsList;
     }
   }
 

@@ -1,18 +1,19 @@
+import { SuggestionsList } from "./../types/interfaces";
 // composables/useSearch.ts
 import { ref, computed, type Ref } from "vue";
 import { SearchResult } from "../types/interfaces";
-type AutocompletePrediction = google.maps.places.AutocompletePrediction;
 import { PlacesApiService } from "../services/search";
+import { log } from "@/utils/logger";
 
 // Main Search Composable
 export function useSearch(
-  location: Ref <{ lat: number; lng: number }|null> ,
+  location: Ref<{ lat: number; lng: number } | null>,
   sharedZoom?: any
 ) {
   // Reactive data
   const searchQuery = ref("");
   const searchResult = ref<SearchResult | null>(null);
-  const searchSuggestions = ref<AutocompletePrediction[]>([]);
+  const searchSuggestions = ref<SuggestionsList["suggestions"]>([]);
   const showSuggestions = ref(false);
   const searchLoading = ref(false);
   const selectedSuggestionIndex = ref(-1);
@@ -65,18 +66,15 @@ export function useSearch(
           }
         : undefined;
 
-      const response = await placesService.autocomplete(
+      const response: SuggestionsList = await placesService.autocomplete(
         searchQuery.value,
         locationBias
       );
 
       console.log("📍 Autocomplete response:", response);
 
-      if (response.status === "OK" || response.predictions.length > 0) {
-        searchSuggestions.value = response.predictions.slice(
-          0,
-          5
-        ) as AutocompletePrediction[];
+      if (response) {
+        searchSuggestions.value = response.suggestions.slice(0, 5);
         showSuggestions.value = true;
         console.log("✅ Found suggestions:", searchSuggestions.value.length);
       } else {
@@ -93,16 +91,18 @@ export function useSearch(
     }
   };
 
-  const selectSuggestion = async (suggestion: AutocompletePrediction) => {
+  const selectSuggestion = async (
+    suggestion: SuggestionsList["suggestions"][0]
+  ) => {
     console.log("📍 Selecting suggestion:", suggestion);
 
-    searchQuery.value = suggestion.description;
+    searchQuery.value = suggestion.placePrediction.text.text;
     showSuggestions.value = false;
     searchLoading.value = true;
 
     try {
       const placeDetails = await placesService.getPlaceDetails(
-        suggestion.place_id
+        suggestion.placePrediction.placeId
       );
 
       console.log("🏢 Place details:", placeDetails);
@@ -115,10 +115,10 @@ export function useSearch(
           },
           name: placeDetails.result.name,
           address: placeDetails.result.formatted_address,
-          placeId: suggestion.place_id,
+          placeId: suggestion.placePrediction.placeId,
         };
 
-        zoom.value = 17;
+        zoom.value = 15;
         console.log("✅ Place selected:", searchResult.value);
       }
     } catch (error) {
@@ -142,6 +142,7 @@ export function useSearch(
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    log(event.key);
     if (!showSuggestions.value || searchSuggestions.value.length === 0) return;
 
     switch (event.key) {
