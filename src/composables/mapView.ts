@@ -6,7 +6,7 @@ import { LocationData } from "../types/interfaces.js";
 
 const supabaseClient = getSupabaseClient();
 
-export function useMap() {
+export function useMap(location: Ref <{ lat: number; lng: number }|null> ) {
   const VITE_GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const VITE_MAP_ID = import.meta.env.VITE_MAP_ID;
 
@@ -15,9 +15,7 @@ export function useMap() {
   const loading = ref(false);
   const loadingSpots = ref(false);
 
-  const getCurrentLocation = (
-    location: Ref<{ lat: number; lng: number } | undefined>
-  ) => {
+  const getCurrentLocation = () => {
     loading.value = true;
     error.value = "";
 

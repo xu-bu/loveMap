@@ -1,11 +1,14 @@
 // composables/useSearch.ts
-import { ref, computed } from "vue";
+import { ref, computed, type Ref } from "vue";
 import { SearchResult } from "../types/interfaces";
 type AutocompletePrediction = google.maps.places.AutocompletePrediction;
 import { PlacesApiService } from "../services/search";
 
 // Main Search Composable
-export function useSearch(location: any, sharedZoom?: any) {
+export function useSearch(
+  location: Ref <{ lat: number; lng: number }|null> ,
+  sharedZoom?: any
+) {
   // Reactive data
   const searchQuery = ref("");
   const searchResult = ref<SearchResult | null>(null);
@@ -57,8 +60,8 @@ export function useSearch(location: any, sharedZoom?: any) {
     try {
       const locationBias = location.value
         ? {
-            lat: location.value.latitude,
-            lng: location.value.longitude,
+            lat: location.value.lat,
+            lng: location.value.lng,
           }
         : undefined;
 
@@ -70,7 +73,10 @@ export function useSearch(location: any, sharedZoom?: any) {
       console.log("📍 Autocomplete response:", response);
 
       if (response.status === "OK" || response.predictions.length > 0) {
-        searchSuggestions.value = response.predictions.slice(0, 5) as AutocompletePrediction[];
+        searchSuggestions.value = response.predictions.slice(
+          0,
+          5
+        ) as AutocompletePrediction[];
         showSuggestions.value = true;
         console.log("✅ Found suggestions:", searchSuggestions.value.length);
       } else {

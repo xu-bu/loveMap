@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { GoogleMap, AdvancedMarker, InfoWindow } from "vue3-google-map";
-import { onMounted, ref } from "vue";
+import { onMounted, ref,type Ref } from "vue";
 import { useMap } from "../composables/mapView";
 import { useSearch } from "../composables/useSearch";
 import "../assets/styles/mapView.css";
 import { PlacePrediction } from "../types/interfaces";
 
-const location = ref<{ lat: number; lng: number } | undefined>();
-// Create a wrapper that captures the ref in the script context
-const handleGetLocation = () => {
-  getCurrentLocation(location); // Here 'location' is still the ref in component
-};
+const location:Ref <{ lat: number; lng: number }|null> = ref(null);
 const {
   VITE_GOOGLE_MAPS_API_KEY,
   VITE_MAP_ID,
@@ -24,7 +20,7 @@ const {
   loadLoveSpots,
   truncateText,
   formatDate,
-} = useMap();
+} = useMap(location);
 const {
   searchQuery,
   searchResult,
@@ -44,10 +40,8 @@ const {
   onMapReady,
 } = useSearch(location);
 
-
-
 onMounted(() => {
-  getCurrentLocation(location);
+  getCurrentLocation();
   loadLoveSpots();
 });
 </script>
@@ -68,7 +62,7 @@ onMounted(() => {
     <div class="error-content">
       <div class="error-icon">⚠️</div>
       <div class="error-message">{{ error }}</div>
-      <button @click="handleGetLocation" class="retry-button">
+      <button @click="()=>getCurrentLocation" class="retry-button">
         🔄 Try Again
       </button>
     </div>
@@ -181,6 +175,6 @@ onMounted(() => {
     </GoogleMap>
 
     <!-- Floating Action Button -->
-    <button @click="handleGetLocation" class="fab">🎯</button>
+    <button @click="()=>getCurrentLocation" class="fab">🎯</button>
   </div>
 </template>

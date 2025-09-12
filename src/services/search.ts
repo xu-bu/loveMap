@@ -1,5 +1,8 @@
-import {PlaceDetailsResponse,AutocompleteResponse} from '../types/interfaces'
- 
+import {
+  PlaceDetailsResponse,
+  AutocompleteResponse,
+} from "../types/interfaces";
+
 // Internal Places API Service Class
 export class PlacesApiService {
   private baseUrl = "https://places.googleapis.com/v1";
@@ -29,8 +32,6 @@ export class PlacesApiService {
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": this.apiKey,
-          "X-Goog-FieldMask":
-            "predictions.place_id,predictions.description,predictions.structured_formatting,predictions.types",
         },
         body: JSON.stringify(requestBody),
       });

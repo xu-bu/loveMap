@@ -250,7 +250,7 @@
 /* Search Component Styles (existing styles from your file) */
 .search-container {
   position: absolute;
-  top: 3rem;
+  top: 4rem;
   left: 1rem;
   right: 1rem;
   z-index: 1000;
