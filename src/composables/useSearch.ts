@@ -90,12 +90,10 @@ export function useSearch(
       searchLoading.value = false;
     }
   };
-
+  // move to selected place
   const selectSuggestion = async (
     suggestion: SuggestionsList["suggestions"][0]
   ) => {
-    console.log("📍 Selecting suggestion:", suggestion);
-
     searchQuery.value = suggestion.placePrediction.text.text;
     showSuggestions.value = false;
     searchLoading.value = true;
@@ -117,6 +115,7 @@ export function useSearch(
           address: placeDetails.result.formatted_address,
           placeId: suggestion.placePrediction.placeId,
         };
+        location.value=searchResult.value.position
 
         zoom.value = 15;
         console.log("✅ Place selected:", searchResult.value);
