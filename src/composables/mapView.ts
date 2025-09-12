@@ -1,49 +1,40 @@
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import { log } from "../utils/logger.js";
 import router from "@/router/index.js";
 import { getSupabaseClient } from "../services/db.js";
+import { LocationData } from "../types/interfaces.js";
 
 const supabaseClient = getSupabaseClient();
-export interface LocationData {
-  id?: number;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  address: string;
-  photos: string[];
-  content: string;
-  created_at?: Date;
-}
 
 export function useMap() {
   const VITE_GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const VITE_MAP_ID = import.meta.env.VITE_MAP_ID;
 
-  const location = ref<{ latitude: number; longitude: number } | null>(null);
   const loveSpots = ref<LocationData[]>([]);
   const error = ref("");
   const loading = ref(false);
   const loadingSpots = ref(false);
 
-  const getCurrentLocation = () => {
+  const getCurrentLocation = (
+    location: Ref<{ lat: number; lng: number } | undefined>
+  ) => {
     loading.value = true;
     error.value = "";
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        location.value = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
+        const { latitude, longitude } = position.coords;
+
+        location.value = { lat: latitude, lng: longitude };
         loading.value = false;
-        log(location.value);
+        log(location);
       },
       (err) => {
+        console.error(err);
         // error.value = err.message;
         location.value = {
-          latitude: 39.95047718713052,
-          longitude: 116.4671802520752,
+          lat: 39.95047718713052,
+          lng: 116.4671802520752,
         };
         loading.value = false;
       },
@@ -68,7 +59,6 @@ export function useMap() {
       } else {
         loveSpots.value = data || [];
         log("Loaded love spots:");
-        log(loveSpots.value);
       }
     } catch (err) {
       console.error("Error loading love spots:", err);
@@ -91,23 +81,21 @@ export function useMap() {
       state: { loveSpot: JSON.parse(JSON.stringify(loveSpot)) },
     });
   }
-  
-  function createAtCurrentLocation() {
-    if (location.value) {
-      // Create a mock event object similar to what handleMapClick expects
-      const mockEvent = {
-        latLng: {
-          lat: () => location.value?.latitude,
-          lng: () => location.value?.longitude,
-        },
-      };
-      handleMapClick(mockEvent);
-    }
-  }
 
-  const initialize = () => {
-    getCurrentLocation();
-    loadLoveSpots();
+  const truncateText = (text: string, maxLength: number): string => {
+    if (!text) return "";
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
+  };
+
+  const formatDate = (date: string | Date | undefined): string => {
+    if (!date) return "";
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return {
@@ -127,7 +115,7 @@ export function useMap() {
     loadLoveSpots,
     handleMapClick,
     handleLoveSpotClick,
-    createAtCurrentLocation,
-    initialize,
+    truncateText,
+    formatDate,
   };
 }

@@ -1,6 +1,5 @@
 import { ref, computed, onMounted, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { log } from '../utils/logger'
 import {getSupabaseClient} from '../services/db'
 
 // Types
@@ -207,8 +206,6 @@ export const useCreateLoveSpot = () => {
         content: content.value,
         created_at: new Date(),
       }
-
-      log(locationData)
       
       if (locationDocId) {
         // Update existing record - exclude created_at from updates

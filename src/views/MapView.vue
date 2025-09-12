@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { GoogleMap, AdvancedMarker, InfoWindow } from "vue3-google-map";
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useMap } from "../composables/mapView";
+import { useSearch } from "../composables/useSearch";
+import "../assets/styles/mapView.css";
+import { PlacePrediction } from "../types/interfaces";
 
+const location = ref<{ lat: number; lng: number } | undefined>();
+// Create a wrapper that captures the ref in the script context
+const handleGetLocation = () => {
+  getCurrentLocation(location); // Here 'location' is still the ref in component
+};
 const {
   VITE_GOOGLE_MAPS_API_KEY,
   VITE_MAP_ID,
-  location,
   loveSpots,
   error,
   loading,
@@ -14,118 +21,166 @@ const {
   getCurrentLocation,
   handleMapClick,
   handleLoveSpotClick,
-  createAtCurrentLocation,
-  initialize
+  loadLoveSpots,
+  truncateText,
+  formatDate,
 } = useMap();
+const {
+  searchQuery,
+  searchResult,
+  searchSuggestions,
+  showSuggestions,
+  searchLoading,
+  selectedSuggestionIndex,
+  searchInput,
+  zoom,
+  onSearchInput,
+  selectSuggestion,
+  onSearchFocus,
+  onSearchBlur,
+  handleKeyDown,
+  clearSearch,
+  createAtSearchLocation,
+  onMapReady,
+} = useSearch(location);
+
+
 
 onMounted(() => {
-  initialize();
+  getCurrentLocation(location);
+  loadLoveSpots();
 });
 </script>
 
 <template>
-  <div v-if="loading || loadingSpots" style="
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    ">
-    <div>{{ loading ? 'Getting your location...' : 'Loading love spots...' }}</div>
+  <!-- Loading States -->
+  <div v-if="loading || loadingSpots" class="loading-container">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <div>
+        {{ loading ? "Getting your location..." : "Loading love spots..." }}
+      </div>
+    </div>
   </div>
 
-  <div v-else-if="error" style="
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      flex-direction: column;
-    ">
-    <div>Error: {{ error }}</div>
-    <button @click="getCurrentLocation" style="margin-top: 10px">
-      Try Again
-    </button>
+  <!-- Error State -->
+  <div v-else-if="error" class="error-container">
+    <div class="error-content">
+      <div class="error-icon">⚠️</div>
+      <div class="error-message">{{ error }}</div>
+      <button @click="handleGetLocation" class="retry-button">
+        🔄 Try Again
+      </button>
+    </div>
   </div>
 
-  <GoogleMap v-else-if="location" :apiKey="VITE_GOOGLE_MAPS_API_KEY" :mapId="VITE_MAP_ID"
-    style="width: 100%; height: 100vh" :center="{ lat: location.latitude, lng: location.longitude }" :zoom="15"
-    @click="handleMapClick">
-    
-    <!-- Current location marker -->
-    <AdvancedMarker :options="{
-      position: { lat: location.latitude, lng: location.longitude },
-    }">
-      <template #content>
-        <div style="
-            background: red;
-            color: white;
-            padding: 5px;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            border: 2px solid white;
-          ">
-          📍
-        </div>
-      </template>
-      <InfoWindow>
-        <h3>Your Location</h3>
-        <div>Lat: {{ location.latitude.toFixed(6) }}</div>
-        <div>Lng: {{ location.longitude.toFixed(6) }}</div>
-        <button @click="createAtCurrentLocation" style="margin-top: 5px">
-          Create
+  <!-- Map with Search -->
+  <div v-else-if="location" class="map-wrapper">
+    <!-- Search Bar with Autocomplete -->
+    <div class="search-container">
+      <div class="search-wrapper">
+        <input ref="searchInput" v-model="searchQuery" type="text" placeholder="Search Google Maps" class="search-input"
+          @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur" @keydown="handleKeyDown" />
+        <button @click="clearSearch" v-if="searchQuery" class="clear-search">
+          ×
         </button>
-      </InfoWindow>
-    </AdvancedMarker>
 
-    <!-- Love Spot Markers -->
-    <AdvancedMarker 
-      v-for="loveSpot in loveSpots" 
-      :key="loveSpot.id"
-      :options="{
-        position: { 
-          lat: loveSpot.coordinates.lat, 
-          lng: loveSpot.coordinates.lng 
-        },
-      }"
-      @click="() => handleLoveSpotClick(loveSpot)"
-    >
-      <template #content>
-        <div style="
-            background: pink;
-            color: white;
-            padding: 8px;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            border: 3px solid #ff69b4;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 16px;
-          ">
-          💖
-        </div>
-      </template>
-      <InfoWindow>
-        <h3>{{ loveSpot.address }}</h3>
-        <div style="max-width: 200px;">
-          <p>{{ loveSpot.content.substring(0, 100) }}{{ loveSpot.content.length > 100 ? '...' : '' }}</p>
-          <div v-if="loveSpot.photos && loveSpot.photos.length > 0" style="margin: 10px 0;">
-            <img 
-              :src="loveSpot.photos[0]" 
-              alt="Love spot preview"
-              style="width: 100%; max-width: 150px; height: auto; border-radius: 8px;"
-            />
+        <!-- Search Results Dropdown -->
+        <div v-if="showSuggestions && searchSuggestions.length > 0" class="search-suggestions">
+          <div v-for="(suggestion, index) in searchSuggestions" :key="(suggestion as PlacePrediction).place_id || index"
+            :class="[
+              'suggestion-item',
+              { selected: selectedSuggestionIndex === index },
+            ]" @mousedown.prevent="selectSuggestion(suggestion)" @mouseenter="selectedSuggestionIndex = index">
+            <div class="suggestion-icon">📍</div>
+            <div class="suggestion-text">
+              <div class="suggestion-name">
+                {{
+                  (suggestion as PlacePrediction).structured_formatting
+                    ?.main_text || (suggestion as PlacePrediction).description
+                }}
+              </div>
+              <div class="suggestion-address">
+                {{
+                  (suggestion as PlacePrediction).structured_formatting
+                    ?.secondary_text
+                }}
+              </div>
+            </div>
           </div>
-          <button 
-            @click="() => handleLoveSpotClick(loveSpot)" 
-            style="margin-top: 10px; background: #ff69b4; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;"
-          >
-            View Details
-          </button>
         </div>
-      </InfoWindow>
-    </AdvancedMarker>
-  </GoogleMap>
+
+        <!-- Loading indicator for search -->
+        <div v-if="searchLoading" class="search-loading">
+          <div class="search-spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <GoogleMap :apiKey="VITE_GOOGLE_MAPS_API_KEY" :mapId="VITE_MAP_ID" :center="location" :zoom="zoom"
+      class="google-map" @click="handleMapClick" @ready="onMapReady">
+      <!-- Current location marker -->
+      <AdvancedMarker :options="{
+        position: { lat: location.lat, lng: location.lng },
+      }">
+        <template #content>
+          <div class="current-location-marker">
+            <div class="pulse"></div>
+            📍
+          </div>
+        </template>
+      </AdvancedMarker>
+
+      <!-- Search result marker -->
+      <AdvancedMarker v-if="searchResult" :options="{
+        position: searchResult.position,
+      }">
+        <template #content>
+          <div class="search-marker">🔍</div>
+        </template>
+        <InfoWindow>
+          <div class="info-window-content">
+            <h3>{{ searchResult.name }}</h3>
+            <p>{{ searchResult.address }}</p>
+            <button @click="createAtSearchLocation" class="create-button">
+              ➕ Create Love Spot Here
+            </button>
+          </div>
+        </InfoWindow>
+      </AdvancedMarker>
+
+      <!-- Love Spot Markers -->
+      <AdvancedMarker v-for="loveSpot in loveSpots" :key="loveSpot.id" :options="{
+        position: {
+          lat: loveSpot.coordinates.lat,
+          lng: loveSpot.coordinates.lng,
+        },
+      }" @click="() => handleLoveSpotClick(loveSpot)">
+        <template #content>
+          <div class="love-spot-marker">💖</div>
+        </template>
+        <InfoWindow>
+          <div class="info-window-content love-spot-info">
+            <h3>{{ loveSpot.address }}</h3>
+            <div class="love-spot-preview">
+              <p>{{ truncateText(loveSpot.content, 100) }}</p>
+              <div v-if="loveSpot.photos && loveSpot.photos.length > 0" class="photo-preview">
+                <img :src="loveSpot.photos[0]" alt="Love spot preview" class="preview-image" />
+              </div>
+              <div class="love-spot-meta">
+                <span class="date">{{ formatDate(loveSpot.created_at) }}</span>
+              </div>
+              <button @click="() => handleLoveSpotClick(loveSpot)" class="view-details-button">
+                👀 View Details
+              </button>
+            </div>
+          </div>
+        </InfoWindow>
+      </AdvancedMarker>
+    </GoogleMap>
+
+    <!-- Floating Action Button -->
+    <button @click="handleGetLocation" class="fab">🎯</button>
+  </div>
 </template>
