@@ -1,4 +1,4 @@
-import { SuggestionsList } from "./../types/interfaces";
+import { SuggestionsList } from "../types/interfaces";
 // composables/useSearch.ts
 import { ref, computed, type Ref } from "vue";
 import { SearchResult } from "../types/interfaces";
