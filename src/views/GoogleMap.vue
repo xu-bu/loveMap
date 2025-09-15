@@ -3,7 +3,7 @@ import { GoogleMap, AdvancedMarker, InfoWindow } from "vue3-google-map";
 import { onMounted, ref, type Ref } from "vue";
 import { useMap } from "../composables/mapView";
 import { useSearch } from "../composables/useGoogleSearch";
-import "../assets/styles/googleMapView.css";
+import "../assets/styles/googleMap.css";
 
 const location: Ref<{ lat: number; lng: number } | null> = ref(null);
 const {

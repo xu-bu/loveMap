@@ -10,14 +10,14 @@ import TestView from '../views/TestView.vue'
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    // redirect:'/'
-    name: 'IndexView',
-    component: IndexView
+    redirect:'/gaodeMap'
+    // name: 'IndexView',
+    // component: IndexView
   },
   {
     path: '/gaodeMap',
     name: 'gaodeMap',
-    component: TestView
+    component: GaodeMap
   },
   {
     path: '/googleMap',
