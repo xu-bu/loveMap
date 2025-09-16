@@ -1,21 +1,7 @@
 import { ref, onMounted, type Ref } from "vue";
 import { useRouter } from "vue-router";
-
-export interface LocationData {
-  id?: number;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  address: string;
-  photos: string[];
-  content: string;
-  created_at?: Date;
-}
-
-interface HistoryState {
-  loveSpot?: LocationData;
-}
+import {LocationData} from "../types/db"
+import {HistoryState} from "../types/common"
 
 export function useLoveSpot() {
   const router = useRouter();

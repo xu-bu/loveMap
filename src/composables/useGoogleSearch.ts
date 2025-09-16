@@ -2,7 +2,7 @@ import { SuggestionsList } from "../types/google";
 // composables/useSearch.ts
 import { ref, computed, type Ref } from "vue";
 import { SearchResult } from "../types/google";
-import { PlacesApiService } from "../services/search";
+import { GoogleSearchService } from "../services/googleSearch";
 import { log } from "@/utils/logger";
 
 // Main Search Composable
@@ -25,7 +25,7 @@ export function useSearch(
   const mapCenter = computed(() => searchResult.value?.position);
 
   // Initialize Places API service
-  const placesService = new PlacesApiService();
+  const googleSearchService = new GoogleSearchService();
   let searchTimeout: NodeJS.Timeout | null = null;
 
   const onMapReady = () => {
@@ -66,7 +66,7 @@ export function useSearch(
           }
         : undefined;
 
-      const response: SuggestionsList = await placesService.autocomplete(
+      const response: SuggestionsList = await googleSearchService.autocomplete(
         searchQuery.value,
         locationBias
       );
@@ -99,7 +99,7 @@ export function useSearch(
     searchLoading.value = true;
 
     try {
-      const placeDetails = await placesService.getPlaceDetails(
+      const placeDetails = await googleSearchService.getPlaceDetails(
         suggestion.placePrediction.placeId
       );
 

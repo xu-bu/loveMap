@@ -93,14 +93,3 @@ export interface SearchResult {
   placeId: string;
 }
 
-export interface LocationData {
-  id?: number;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  address: string;
-  photos: string[];
-  content: string;
-  created_at?: Date;
-}

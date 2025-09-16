@@ -1,10 +1,7 @@
-import {
-  PlaceDetailsResponse,
-  SuggestionsList,
-} from "../types/google";
+import { PlaceDetailsResponse, SuggestionsList } from "../types/google";
 
 // Internal Places API Service Class
-export class PlacesApiService {
+export class GoogleSearchService {
   private baseUrl = "https://places.googleapis.com/v1";
   private apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 
@@ -89,6 +86,24 @@ export class PlacesApiService {
         result: {} as PlaceDetailsResponse["result"],
         status: "ERROR",
       };
+    }
+  }
+
+  async getAddress(lat: string, lng: string): Promise<string> {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${this.apiKey}`
+    );
+
+    if (!response.ok) {
+      return "Not able to get address";
+    }
+
+    const data = await response.json();
+
+    if (data.results && data.results.length > 0) {
+      return data.results[0].formatted_address;
+    } else {
+      return "Address not found";
     }
   }
 }

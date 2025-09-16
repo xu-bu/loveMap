@@ -93,16 +93,9 @@
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { GaodePOI, SelectedPlace, AMapInstance } from "../types/gaode";
 import "../assets/styles/gaodeMap.css";
+import { useRouter } from "vue-router";
 
-// declare global {
-//   interface Window {
-//     AMap: any
-//     _AMapSecurityConfig: {
-//       securityJsCode: string
-//     }
-//   }
-// }
-
+const router = useRouter();
 // Reactive data
 const loading = ref(true);
 const error = ref("");
@@ -125,11 +118,12 @@ let searchMarkers: any[] = [];
 
 // Configuration - Replace with your actual API keys
 const GAODE_API_KEY =
-  import.meta.env.VITE_GAODE_API_KEY || "YOUR_GAODE_API_KEY";
+  import.meta.env.VITE_GAODE_API_KEY;
 const GAODE_SECURITY_CODE =
-  import.meta.env.VITE_GAODE_SECURITY_CODE || "YOUR_SECURITY_CODE";
+  import.meta.env.VITE_GAODE_SECURITY_KEY;
 
 let searchTimeout: NodeJS.Timeout | null = null;
+let pressTimer: number | null = null;
 
 // Load Gaode Maps API with plugins
 const loadGaodeAPI = (): Promise<AMapInstance> => {
@@ -217,39 +211,6 @@ const initPlugins = async (AMap: AMapInstance) => {
     enableHighAccuracy: true,
     timeout: 10000,
   });
-
-  // Alternative Method 2: Using AMap.plugin for async loading
-  /*
-  await new Promise<void>((resolve) => {
-    AMap.plugin(['AMap.AutoComplete', 'AMap.PlaceSearch', 'AMap.ToolBar', 'AMap.Scale', 'AMap.Geolocation'], () => {
-      // Initialize plugins in callback
-      toolbar = new AMap.ToolBar({ position: 'RT' })
-      map.addControl(toolbar)
-      
-      scale = new AMap.Scale({ position: 'LB' })
-      map.addControl(scale)
-      
-      autoComplete = new AMap.AutoComplete({
-        city: '全国',
-        citylimit: false
-      })
-      
-      placeSearch = new AMap.PlaceSearch({
-        city: '全国',
-        citylimit: false,
-        map: map,
-        panel: false
-      })
-      
-      geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 10000,
-      })
-      
-      resolve()
-    })
-  })
-  */
 };
 
 // Setup event listeners
@@ -270,14 +231,26 @@ const setupEventListeners = () => {
     }
   });
 
-  // Map click event
-  map.on("click", (e: any) => {
-    const { lng, lat } = e.lnglat;
-    addMarker(
-      [lng, lat],
-      "📍",
-      `Clicked Location\nLat: ${lat.toFixed(6)}\nLng: ${lng.toFixed(6)}`
-    );
+  map.on("mousedown", (e: any) => {
+    pressTimer = window.setTimeout(() => {
+      const { lng, lat } = e.lnglat;
+      // 触发长按逻辑
+      router.push({ path: "/createLoveSpot", query: { lat, lng } });
+    }, 800); // 800ms 作为长按的阈值
+  });
+
+  map.on("mouseup", () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  map.on("mouseout", () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
   });
 };
 
