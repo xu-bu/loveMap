@@ -3,6 +3,7 @@ import { log } from "../utils/logger.js";
 import router from "@/router/index.js";
 import { getSupabaseClient } from "../services/db.js";
 import { LocationData } from "../types/google.js";
+import { locateUserByIP } from "../utils/locateUserByIP.js"
 
 const supabaseClient = getSupabaseClient();
 
@@ -19,8 +20,9 @@ export function useMap(location: Ref <{ lat: number; lng: number }|null> ) {
     loading.value = true;
     error.value = "";
 
-    // const ip= await getUserIP()
+    const location= await locateUserByIP()
 
+    log(location)
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;

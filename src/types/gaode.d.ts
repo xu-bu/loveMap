@@ -1,31 +1,47 @@
-// Gaode Web Service API response interfaces
-export interface GaodeIPLocation {
-  location: Array
+// Global type declarations for Gaode Maps
+export declare global {
+  interface Window {
+    AMap: any
+    _AMapSecurityConfig: {
+      securityJsCode: string
+    }
+  }
 }
 
-export interface GaodeSearchResponse {
-  status: string;
-  count: string;
-  info: string;
-  infocode: string;
-  suggestion?: {
-    keywords: string[];
-    cities: Array<{
-      name: string;
-      num: string;
-      citycode: string;
-      adcode: string;
-    }>;
-  };
-  pois: GaodePOI[];
+
+
+// Gaode Maps API types
+interface AMapInstance {
+  Map: new (container: string | HTMLElement, options: any) => any
+  Marker: new (options: any) => any
+  InfoWindow: new (options: any) => any
+  AutoComplete: new (options: any) => any
+  PlaceSearch: new (options: any) => any
+  ToolBar: new (options: any) => any
+  Scale: new (options: any) => any
+  Geolocation: new (options: any) => any
+  plugin: (plugins: string | string[], callback: () => void) => void
 }
 
-// Simplified search result for suggestions
-export interface GaodeSearchResult {
-  id: string;
-  name: string;
-  district: string;
-  address: string;
-  location: string; // "lng,lat" format
-  fullAddress: string;
+// Component types
+interface GaodePOI {
+  id: string
+  name: string
+  district?: string
+  address?: string
+  location: {
+    lng: number
+    lat: number
+  }
+  tel?: string
+  type?: string
+  distance?: number
+}
+
+interface SelectedPlace {
+  name: string
+  address?: string
+  tel?: string
+  type?: string
+  distance?: number
 }

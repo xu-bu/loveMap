@@ -39,8 +39,8 @@ const {
   onMapReady,
 } = useSearch(location);
 
-onMounted(() => {
-  getCurrentLocation();
+onMounted(async () => {
+  await getCurrentLocation();
   loadLoveSpots();
 });
 </script>

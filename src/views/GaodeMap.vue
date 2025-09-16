@@ -1,390 +1,619 @@
+<template>
+  <div class="gaode-map-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🗺️ Gaode Maps Plugin Demo</h1>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+      <div class="search-container">
+        <input
+          ref="searchInput"
+          v-model="searchQuery"
+          type="text"
+          placeholder="搜索地点 (Search for places...)"
+          class="search-input"
+          @input="onSearchInput"
+          @focus="onSearchFocus"
+          @blur="onSearchBlur"
+          @keydown="handleKeyDown"
+        />
+
+        <!-- Search Suggestions Dropdown -->
+        <div
+          v-if="showSuggestions && suggestions.length > 0"
+          class="suggestions-dropdown"
+        >
+          <div
+            v-for="(suggestion, index) in suggestions"
+            :key="index"
+            :class="['suggestion-item', { selected: selectedIndex === index }]"
+            @mousedown.prevent="selectSuggestion(suggestion)"
+            @mouseenter="selectedIndex = index"
+          >
+            <span class="suggestion-icon">📍</span>
+            <div class="suggestion-text">
+              <div class="suggestion-name">{{ suggestion.name }}</div>
+              <div class="suggestion-address">{{ suggestion.district }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button @click="getCurrentLocation" class="btn btn-primary">
+          📍 Current Location
+        </button>
+        <button @click="searchNearby" class="btn btn-secondary">
+          🔍 Nearby POIs
+        </button>
+        <button @click="clearSearch" class="btn btn-secondary">🗑️ Clear</button>
+        <button @click="toggleToolbar" class="btn btn-secondary">
+          🔧 Toggle Toolbar
+        </button>
+        <button @click="toggleScale" class="btn btn-secondary">
+          📏 Toggle Scale
+        </button>
+      </div>
+    </div>
+
+    <!-- Map Container -->
+    <div class="map-wrapper">
+      <div v-if="loading" class="loading-overlay">
+        <div class="loading-content">
+          <div class="spinner"></div>
+          <span>Loading Gaode Maps...</span>
+        </div>
+      </div>
+
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
+
+      <div id="gaode-map" class="map-container"></div>
+
+      <!-- Info Panel -->
+      <div v-if="selectedPlace" class="info-panel">
+        <div class="info-title">{{ selectedPlace.name }}</div>
+        <div class="info-details">
+          <div v-if="selectedPlace.address">📍 {{ selectedPlace.address }}</div>
+          <div v-if="selectedPlace.tel">📞 {{ selectedPlace.tel }}</div>
+          <div v-if="selectedPlace.type">🏷️ {{ selectedPlace.type }}</div>
+          <div v-if="selectedPlace.distance">
+            📏 {{ selectedPlace.distance }}m away
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
-import { watch, onMounted, onUnmounted, ref, nextTick, type Ref } from "vue";
-import AMapLoader from "@amap/amap-jsapi-loader";
-import { useMap } from "../composables/mapView";
-import { useGaodeSearch } from "../composables/useGaodeSearch";
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { GaodePOI, SelectedPlace, AMapInstance } from "../types/gaode";
 import "../assets/styles/gaodeMap.css";
 
-const location: Ref<{ lat: number; lng: number } | null> = ref(null);
-const mapContainer = ref<HTMLElement>();
+// declare global {
+//   interface Window {
+//     AMap: any
+//     _AMapSecurityConfig: {
+//       securityJsCode: string
+//     }
+//   }
+// }
+
+// Reactive data
+const loading = ref(true);
+const error = ref("");
+const searchQuery = ref("");
+const suggestions = ref<GaodePOI[]>([]);
+const showSuggestions = ref(false);
+const selectedIndex = ref(-1);
+const selectedPlace = ref<SelectedPlace | null>(null);
+const searchInput = ref<HTMLInputElement>();
+
+// Map and plugin instances
 let map: any = null;
+let autoComplete: any = null;
+let placeSearch: any = null;
+let toolbar: any = null;
+let scale: any = null;
+let geolocation: any = null;
 let currentLocationMarker: any = null;
-let searchMarker: any = null;
-let loveSpotMarkers: any[] = [];
-let AMap: any = null;
+let searchMarkers: any[] = [];
 
-const {
-    loveSpots,
-    error,
-    loading,
-    loadingSpots,
-    getCurrentLocation,
-    handleMapClick,
-    handleLoveSpotClick,
-    loadLoveSpots,
-    truncateText,
-    formatDate,
-} = useMap(location);
+// Configuration - Replace with your actual API keys
+const GAODE_API_KEY =
+  import.meta.env.VITE_GAODE_API_KEY || "YOUR_GAODE_API_KEY";
+const GAODE_SECURITY_CODE =
+  import.meta.env.VITE_GAODE_SECURITY_CODE || "YOUR_SECURITY_CODE";
 
-const {
-    searchQuery,
-    searchResult,
-    searchSuggestions,
-    showSuggestions,
-    searchLoading,
-    selectedSuggestionIndex,
-    searchInput,
-    zoom,
-    onSearchInput,
-    selectSuggestion,
-    onSearchFocus,
-    onSearchBlur,
-    handleKeyDown,
-    clearSearch,
-    createAtSearchLocation,
-} = useGaodeSearch(location);
+let searchTimeout: NodeJS.Timeout | null = null;
 
-// Gaode API configuration
-const VITE_GAODE_API_KEY = import.meta.env.VITE_GAODE_API_KEY;
-const VITE_GAODE_SECURITY_KEY = import.meta.env.VITE_GAODE_SECURITY_KEY;
-
-// Load Gaode Map API using official loader
-const loadGaodeAPI = async (): Promise<any> => {
-    if (AMap) {
-        return AMap;
+// Load Gaode Maps API with plugins
+const loadGaodeAPI = (): Promise<AMapInstance> => {
+  return new Promise((resolve, reject) => {
+    if (window.AMap) {
+      resolve(window.AMap as AMapInstance);
+      return;
     }
 
-    try {
-        // Set security config
-        (window as any)._AMapSecurityConfig = {
-            securityJsCode: VITE_GAODE_SECURITY_KEY,
-        };
+    // Set security config
+    window._AMapSecurityConfig = {
+      securityJsCode: GAODE_SECURITY_CODE,
+    };
 
-        // Load AMap with required plugins
-        AMap = await AMapLoader.load({
-            key: VITE_GAODE_API_KEY,
-            version: "2.0",
-            plugins: ["AMap.Scale"],
-        });
-
-        console.log("✅ Gaode API loaded successfully");
-        return AMap;
-    } catch (error) {
-        console.error("❌ Failed to load Gaode API:", error);
-        throw error;
-    }
+    const script = document.createElement("script");
+    // Load with multiple plugins synchronously
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_API_KEY}&plugin=AMap.AutoComplete,AMap.PlaceSearch,AMap.ToolBar,AMap.Scale,AMap.Geolocation`;
+    script.async = true;
+    script.onload = () => resolve(window.AMap as AMapInstance);
+    script.onerror = () => reject(new Error("Failed to load Gaode Maps API"));
+    document.head.appendChild(script);
+  });
 };
 
-// Initialize Gaode Map
-const initMap = async (): Promise<void> => {
-    if (!location.value || !mapContainer.value || !AMap) return;
+// Initialize map and plugins
+const initMap = async () => {
+  try {
+    const AMap = await loadGaodeAPI();
 
-    try {
-        map = new AMap.Map(mapContainer.value, {
-            zoom: zoom?.value || 15,
-            center: [location.value.lng, location.value.lat], // Gaode uses [lng, lat] format
-            mapStyle: 'amap://styles/normal',
-            viewMode: '3D',
-        });
+    // Create map instance
+    map = new AMap.Map("gaode-map", {
+      zoom: 11,
+      center: [116.397428, 39.90923], // Beijing
+      mapStyle: "amap://styles/normal",
+      viewMode: "3D",
+    });
 
-        // Add map click event
-        map.on('click', (e: any) => {
-            const lnglat = e.lnglat;
-            handleMapClick({
-                latLng: {
-                    lat: () => lnglat.lat,
-                    lng: () => lnglat.lng,
-                },
-            });
-        });
+    // Initialize plugins after map is created
+    await initPlugins(AMap);
 
-        // Add current location marker
-        addCurrentLocationMarker();
+    // Set up event listeners
+    setupEventListeners();
 
-        // Add love spot markers
-        addLoveSpotMarkers();
-
-        console.log("✅ Gaode map initialized successfully");
-    } catch (error) {
-        console.error("❌ Failed to initialize map:", error);
-    }
+    console.log("✅ Gaode Map and plugins initialized successfully");
+    loading.value = false;
+  } catch (err) {
+    console.error("❌ Failed to initialize map:", err);
+    error.value = "Failed to load Gaode Maps. Please check your API key.";
+    loading.value = false;
+  }
 };
 
-const addCurrentLocationMarker = (): void => {
-    if (!map || !location.value || !AMap) return;
+// Initialize all plugins
+const initPlugins = async (AMap: AMapInstance) => {
+  // Method 1: Direct instantiation (since plugins are loaded synchronously)
 
-    // Remove existing marker
-    if (currentLocationMarker) {
+  // Initialize ToolBar
+  toolbar = new AMap.ToolBar({
+    position: "RT", // Right Top
+  });
+  map.addControl(toolbar);
+
+  // Initialize Scale
+  scale = new AMap.Scale({
+    position: "LB", // Left Bottom
+  });
+  map.addControl(scale);
+
+  // Initialize AutoComplete
+  autoComplete = new AMap.AutoComplete({
+    city: "全国",
+    citylimit: false,
+  });
+
+  // Initialize PlaceSearch
+  placeSearch = new AMap.PlaceSearch({
+    city: "全国",
+    citylimit: false,
+    map: map,
+    panel: false,
+  });
+
+  // Initialize Geolocation
+  geolocation = new AMap.Geolocation({
+    enableHighAccuracy: true,
+    timeout: 10000,
+  });
+
+  // Alternative Method 2: Using AMap.plugin for async loading
+  /*
+  await new Promise<void>((resolve) => {
+    AMap.plugin(['AMap.AutoComplete', 'AMap.PlaceSearch', 'AMap.ToolBar', 'AMap.Scale', 'AMap.Geolocation'], () => {
+      // Initialize plugins in callback
+      toolbar = new AMap.ToolBar({ position: 'RT' })
+      map.addControl(toolbar)
+      
+      scale = new AMap.Scale({ position: 'LB' })
+      map.addControl(scale)
+      
+      autoComplete = new AMap.AutoComplete({
+        city: '全国',
+        citylimit: false
+      })
+      
+      placeSearch = new AMap.PlaceSearch({
+        city: '全国',
+        citylimit: false,
+        map: map,
+        panel: false
+      })
+      
+      geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000,
+      })
+      
+      resolve()
+    })
+  })
+  */
+};
+
+// Setup event listeners
+const setupEventListeners = () => {
+  // AutoComplete events
+  autoComplete.on("select", (e: any) => {
+    const poi = e.poi;
+    if (poi && poi.location) {
+      selectSuggestionFromAutocomplete(poi);
+    }
+  });
+
+  // PlaceSearch events
+  placeSearch.on("selectChanged", (e: any) => {
+    const poi = e.selected.data;
+    if (poi) {
+      showPlaceDetails(poi);
+    }
+  });
+
+  // Map click event
+  map.on("click", (e: any) => {
+    const { lng, lat } = e.lnglat;
+    addMarker(
+      [lng, lat],
+      "📍",
+      `Clicked Location\nLat: ${lat.toFixed(6)}\nLng: ${lng.toFixed(6)}`
+    );
+  });
+};
+
+// Handle search input with debouncing
+const onSearchInput = () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  selectedIndex.value = -1;
+
+  if (!searchQuery.value.trim()) {
+    suggestions.value = [];
+    showSuggestions.value = false;
+    return;
+  }
+
+  searchTimeout = setTimeout(() => {
+    performAutoComplete();
+  }, 300);
+};
+
+// Perform autocomplete search
+const performAutoComplete = () => {
+  if (!autoComplete || !searchQuery.value.trim()) return;
+
+  autoComplete.search(searchQuery.value, (status: string, result: any) => {
+    if (status === "complete" && result.tips) {
+      const tips = result.tips
+        .filter((tip: any) => tip.location)
+        .slice(0, 8)
+        .map((tip: any) => ({
+          id: tip.id,
+          name: tip.name,
+          district: tip.district || tip.address,
+          address: tip.address,
+          location: tip.location,
+          type: tip.typecode,
+          tel: tip.tel,
+        }));
+
+      suggestions.value = tips;
+      showSuggestions.value = tips.length > 0;
+    } else {
+      suggestions.value = [];
+      showSuggestions.value = false;
+    }
+  });
+};
+
+// Select suggestion from dropdown
+const selectSuggestion = (suggestion: GaodePOI) => {
+  searchQuery.value = suggestion.name;
+  showSuggestions.value = false;
+  selectedPlace.value = {
+    name: suggestion.name,
+    address: suggestion.address,
+    tel: suggestion.tel,
+    type: suggestion.type,
+  };
+
+  if (suggestion.location) {
+    const { lng, lat } = suggestion.location;
+    map.setCenter([lng, lat]);
+    map.setZoom(16);
+    addMarker([lng, lat], "🔍", suggestion.name);
+  }
+};
+
+// Select suggestion from autocomplete event
+const selectSuggestionFromAutocomplete = (poi: any) => {
+  searchQuery.value = poi.name;
+  showSuggestions.value = false;
+
+  selectedPlace.value = {
+    name: poi.name,
+    address: poi.address,
+    tel: poi.tel,
+    type: poi.type,
+  };
+
+  const { lng, lat } = poi.location;
+  map.setCenter([lng, lat]);
+  map.setZoom(16);
+  addMarker([lng, lat], "🔍", poi.name);
+};
+
+// Show place details
+const showPlaceDetails = (poi: any) => {
+  selectedPlace.value = {
+    name: poi.name,
+    address: poi.address,
+    tel: poi.tel,
+    type: poi.type,
+    distance: poi.distance,
+  };
+};
+
+// Add marker to map
+const addMarker = (
+  position: [number, number],
+  content: string,
+  title: string
+) => {
+  // Clear existing search markers
+  searchMarkers.forEach((marker) => map.remove(marker));
+  searchMarkers = [];
+
+  const marker = new window.AMap!.Marker({
+    position: position,
+    content: `<div style="background: white; padding: 8px; border-radius: 50%; font-size: 20px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">${content}</div>`,
+    anchor: "center",
+  });
+
+  // Add info window
+  const infoWindow = new window.AMap!.InfoWindow({
+    content: `<div style="padding: 12px;"><strong>${title}</strong></div>`,
+    anchor: "bottom-center",
+    offset: [0, -35],
+  });
+
+  marker.on("click", () => {
+    infoWindow.open(map, position);
+  });
+
+  map.add(marker);
+  searchMarkers.push(marker);
+};
+
+// Get current location using Geolocation plugin
+const getCurrentLocation = () => {
+  if (!geolocation) return;
+
+  geolocation.getCurrentPosition((status: string, result: any) => {
+    if (status === "complete") {
+      const { lng, lat } = result.position;
+
+      // Remove existing current location marker
+      if (currentLocationMarker) {
         map.remove(currentLocationMarker);
+      }
+
+      // Add current location marker
+      currentLocationMarker = new window.AMap!.Marker({
+        position: [lng, lat],
+        content: `<div style="background: #4285f4; color: white; padding: 10px; border-radius: 50%; font-size: 16px; border: 3px solid white; box-shadow: 0 2px 15px rgba(0,0,0,0.3);">📍</div>`,
+        anchor: "center",
+      });
+
+      map.add(currentLocationMarker);
+      map.setCenter([lng, lat]);
+      map.setZoom(15);
+
+      selectedPlace.value = {
+        name: "Current Location",
+        address:
+          result.formattedAddress ||
+          `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`,
+      };
+    } else {
+      error.value = "Unable to get current location";
+      setTimeout(() => (error.value = ""), 3000);
     }
-
-    // Create custom marker content
-    const markerContent = document.createElement('div');
-    markerContent.className = 'current-location-marker';
-    markerContent.innerHTML = `
-        <div class="pulse"></div>
-        📍
-    `;
-
-    currentLocationMarker = new AMap.Marker({
-        position: [location.value.lng, location.value.lat],
-        content: markerContent,
-        anchor: 'center',
-    });
-
-    map.add(currentLocationMarker);
+  });
 };
 
-const addSearchMarker = (): void => {
-    if (!map || !searchResult.value || !AMap) return;
+// Search nearby POIs using PlaceSearch
+const searchNearby = () => {
+  if (!placeSearch || !map) return;
 
-    // Remove existing search marker
-    if (searchMarker) {
-        map.remove(searchMarker);
-    }
+  const center = map.getCenter();
 
-    const markerContent = document.createElement('div');
-    markerContent.className = 'search-marker';
-    markerContent.innerHTML = '🔍';
+  placeSearch.searchNearBy(
+    "",
+    [center.lng, center.lat],
+    1000,
+    (status: string, result: any) => {
+      if (status === "complete" && result.poiList && result.poiList.pois) {
+        // Clear existing markers
+        searchMarkers.forEach((marker) => map.remove(marker));
+        searchMarkers = [];
 
-    searchMarker = new AMap.Marker({
-        position: [searchResult.value.position.lng, searchResult.value.position.lat],
-        content: markerContent,
-        anchor: 'center',
-    });
+        // Add markers for nearby POIs
+        result.poiList.pois.slice(0, 10).forEach((poi: any, index: number) => {
+          const { lng, lat } = poi.location;
+          const marker = new window.AMap.Marker({
+            position: [lng, lat],
+            content: `<div style="background: #ff6b6b; color: white; padding: 6px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${
+              index + 1
+            }</div>`,
+            anchor: "center",
+          });
 
-    // Add info window
-    const infoWindow = new AMap.InfoWindow({
-        content: `
-            <div class="info-window-content">
-                <h3>${searchResult.value.name}</h3>
-                <p>${searchResult.value.address}</p>
-                <button onclick="createAtSearchLocation()" class="create-button">
-                    ➕ Create Love Spot Here
-                </button>
-            </div>
-        `,
-        anchor: 'bottom-center',
-        offset: [0, -30],
-    });
-
-    searchMarker.on('click', () => {
-        infoWindow.open(map, searchMarker.getPosition());
-    });
-
-    map.add(searchMarker);
-
-    // Center map on search result
-    map.setCenter([searchResult.value.position.lng, searchResult.value.position.lat]);
-    map.setZoom(17);
-};
-
-const addLoveSpotMarkers = (): void => {
-    if (!map || !AMap) return;
-
-    // Remove existing markers
-    loveSpotMarkers.forEach(marker => map.remove(marker));
-    loveSpotMarkers = [];
-
-    loveSpots.value.forEach(loveSpot => {
-        const markerContent = document.createElement('div');
-        markerContent.className = 'love-spot-marker';
-        markerContent.innerHTML = '💖';
-
-        const marker = new AMap.Marker({
-            position: [loveSpot.coordinates.lng, loveSpot.coordinates.lat],
-            content: markerContent,
-            anchor: 'center',
-        });
-
-        const infoWindow = new AMap.InfoWindow({
+          const infoWindow = new window.AMap.InfoWindow({
             content: `
-                <div class="info-window-content love-spot-info">
-                    <h3>${loveSpot.address}</h3>
-                    <div class="love-spot-preview">
-                        <p>${truncateText(loveSpot.content, 100)}</p>
-                        ${loveSpot.photos && loveSpot.photos.length > 0 ?
-                            `<div class="photo-preview">
-                                <img src="${loveSpot.photos[0]}" alt="Love spot preview" class="preview-image" />
-                            </div>` : ''
-                        }
-                        <div class="love-spot-meta">
-                            <span class="date">${formatDate(loveSpot.created_at)}</span>
-                        </div>
-                        <button onclick="viewLoveSpotDetails('${loveSpot.id}')" class="view-details-button">
-                            👀 View Details
-                        </button>
-                    </div>
-                </div>
-            `,
-            anchor: 'bottom-center',
-            offset: [0, -30],
+            <div style="padding: 12px; max-width: 200px;">
+              <strong>${poi.name}</strong><br>
+              <small style="color: #666;">${poi.address}</small><br>
+              ${
+                poi.tel
+                  ? `<small style="color: #666;">📞 ${poi.tel}</small><br>`
+                  : ""
+              }
+              <small style="color: #999;">Distance: ${poi.distance}m</small>
+            </div>
+          `,
+            anchor: "bottom-center",
+            offset: [0, -35],
+          });
+
+          marker.on("click", () => {
+            infoWindow.open(map, [lng, lat]);
+            selectedPlace.value = {
+              name: poi.name,
+              address: poi.address,
+              tel: poi.tel,
+              type: poi.type,
+              distance: poi.distance,
+            };
+          });
+
+          map.add(marker);
+          searchMarkers.push(marker);
         });
-
-        marker.on('click', () => {
-            infoWindow.open(map, marker.getPosition());
-        });
-
-        (marker as any).loveSpotData = loveSpot;
-        map.add(marker);
-        loveSpotMarkers.push(marker);
-    });
-};
-
-// Global functions for info window buttons
-(window as any).createAtSearchLocation = createAtSearchLocation;
-(window as any).viewLoveSpotDetails = (id: number) => {
-    const loveSpot = loveSpots.value.find(spot => spot.id === id);
-    if (loveSpot) {
-        handleLoveSpotClick(loveSpot);
+      }
     }
+  );
 };
 
-const centerToCurrentLocation = (): void => {
-    if (map && location.value) {
-        map.setCenter([location.value.lng, location.value.lat]);
-        map.setZoom(15);
+// Toggle toolbar visibility
+const toggleToolbar = () => {
+  if (toolbar) {
+    if (toolbar.getVisible && toolbar.getVisible()) {
+      toolbar.hide();
+    } else {
+      toolbar.show();
     }
+  }
 };
 
-// Watch for search result changes
-const watchSearchResult = (): void => {
-    if (searchResult.value) {
-        nextTick(() => {
-            addSearchMarker();
-        });
-    } else if (searchMarker) {
-        map.remove(searchMarker);
-        searchMarker = null;
+// Toggle scale visibility
+const toggleScale = () => {
+  if (scale) {
+    if (scale.getVisible && scale.getVisible()) {
+      scale.hide();
+    } else {
+      scale.show();
     }
+  }
 };
 
-// Watch for love spots changes
-const watchLoveSpots = (): void => {
-    nextTick(() => {
-        addLoveSpotMarkers();
-    });
+// Clear search and markers
+const clearSearch = () => {
+  searchQuery.value = "";
+  suggestions.value = [];
+  showSuggestions.value = false;
+  selectedPlace.value = null;
+  selectedIndex.value = -1;
+
+  // Clear search markers
+  searchMarkers.forEach((marker) => map.remove(marker));
+  searchMarkers = [];
+
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
 };
 
-onMounted(async () => {
-    try {
-        // Load Gaode API first
-        await loadGaodeAPI();
-        
-        // Get current location
-        await getCurrentLocation();
-        
-        // Load love spots
-        await loadLoveSpots();
+// Handle search focus
+const onSearchFocus = () => {
+  if (searchQuery.value && suggestions.value.length > 0) {
+    showSuggestions.value = true;
+  }
+};
 
-        if (location.value) {
-            nextTick(() => {
-                initMap();
-            });
-        }
-    } catch (error) {
-        console.error('Failed to initialize Gaode Map:', error);
-    }
+// Handle search blur
+const onSearchBlur = () => {
+  setTimeout(() => {
+    showSuggestions.value = false;
+  }, 150);
+};
+
+// Handle keyboard navigation
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!showSuggestions.value || suggestions.value.length === 0) return;
+
+  switch (event.key) {
+    case "ArrowDown":
+      event.preventDefault();
+      selectedIndex.value = Math.min(
+        selectedIndex.value + 1,
+        suggestions.value.length - 1
+      );
+      break;
+    case "ArrowUp":
+      event.preventDefault();
+      selectedIndex.value = Math.max(selectedIndex.value - 1, -1);
+      break;
+    case "Enter":
+      event.preventDefault();
+      if (selectedIndex.value >= 0) {
+        selectSuggestion(suggestions.value[selectedIndex.value]);
+      }
+      break;
+    case "Escape":
+      showSuggestions.value = false;
+      selectedIndex.value = -1;
+      searchInput.value?.blur();
+      break;
+  }
+};
+
+// Lifecycle hooks
+onMounted(() => {
+  nextTick(() => {
+    initMap();
+  });
 });
 
 onUnmounted(() => {
-    if (map) {
-        map.destroy();
-        map = null;
-    }
+  // Cleanup
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  // Destroy map instance
+  if (map) {
+    map.destroy();
+  }
 });
 
-// Watch for changes
-watch(searchResult, (newResult) => {
-    if (newResult) {
-        watchSearchResult();
-    }
-});
-
-watch(loveSpots, (newSpots) => {
-    if (newSpots.length > 0) {
-        watchLoveSpots();
-    }
+// Expose methods for parent components
+defineExpose({
+  map,
+  getCurrentLocation,
+  searchNearby,
+  clearSearch,
 });
 </script>
-
-<template>
-    <!-- Loading States -->
-    <div v-if="loading || loadingSpots" class="loading-container">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <div>
-                {{ loading ? "Getting your location..." : "Loading love spots..." }}
-            </div>
-        </div>
-    </div>
-
-    <!-- Error State -->
-    <div v-else-if="error" class="error-container">
-        <div class="error-content">
-            <div class="error-icon">⚠️</div>
-            <div class="error-message">{{ error }}</div>
-            <button @click="getCurrentLocation" class="retry-button">
-                🔄 Try Again
-            </button>
-        </div>
-    </div>
-
-    <!-- Map with Search -->
-    <div v-else-if="location" class="map-wrapper">
-        <!-- Search Bar with Autocomplete -->
-        <div class="search-container">
-            <div class="search-wrapper">
-                <input 
-                    ref="searchInput" 
-                    v-model="searchQuery" 
-                    type="text" 
-                    placeholder="搜索地点" 
-                    class="search-input"
-                    @input="onSearchInput" 
-                    @focus="onSearchFocus" 
-                    @blur="onSearchBlur" 
-                    @keydown="handleKeyDown" 
-                />
-                <button @click="clearSearch" v-if="searchQuery" class="clear-search">
-                    ×
-                </button>
-
-                <!-- Search Results Dropdown -->
-                <div v-if="showSuggestions && searchSuggestions.length > 0" class="search-suggestions">
-                    <div 
-                        v-for="(suggestion, index) in searchSuggestions" 
-                        :key="index" 
-                        :class="[
-                            'suggestion-item',
-                            { selected: selectedSuggestionIndex === index },
-                        ]" 
-                        @mousedown.prevent="selectSuggestion(suggestion)" 
-                        @mouseenter="selectedSuggestionIndex = index"
-                    >
-                        <div class="suggestion-icon">📍</div>
-                        <div class="suggestion-text">
-                            <div class="suggestion-name">
-                                {{ suggestion.name }}
-                            </div>
-                            <div class="suggestion-address">
-                                {{ suggestion.district + suggestion.address }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Loading indicator for search -->
-                <div v-if="searchLoading" class="search-loading">
-                    <div class="search-spinner"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Map Container -->
-        <div ref="mapContainer" class="google-map" style="width: 100%; height: 100%;"></div>
-
-        <!-- Floating Action Button -->
-        <button @click="centerToCurrentLocation" class="fab">🎯</button>
-    </div>
-</template>
