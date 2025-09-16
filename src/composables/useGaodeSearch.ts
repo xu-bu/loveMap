@@ -1,54 +1,6 @@
-// composables/useGaodeSearch.ts
 import { ref, computed, type Ref } from "vue";
 import { SearchResult } from "../types/google";
-import { log } from "@/utils/logger";
-
-// Gaode Web Service API response interfaces
-interface GaodePOI {
-  id: string;
-  name: string;
-  type: string;
-  typecode: string;
-  address: string;
-  location: string; // "lng,lat" format
-  tel: string;
-  distance: string;
-  biz_type: string;
-  pname: string; // Province name
-  cityname: string;
-  adname: string; // District name
-  importance: string;
-  shopid: string;
-  shopinfo: string;
-  poiweight: string;
-}
-
-interface GaodeSearchResponse {
-  status: string;
-  count: string;
-  info: string;
-  infocode: string;
-  suggestion?: {
-    keywords: string[];
-    cities: Array<{
-      name: string;
-      num: string;
-      citycode: string;
-      adcode: string;
-    }>;
-  };
-  pois: GaodePOI[];
-}
-
-// Simplified search result for suggestions
-interface GaodeSearchResult {
-  id: string;
-  name: string;
-  district: string;
-  address: string;
-  location: string; // "lng,lat" format
-  fullAddress: string;
-}
+import { GaodeSearchResponse,GaodeSearchResult } from "@/types/gaode";
 
 // Main Gaode Search Composable
 export function useGaodeSearch(

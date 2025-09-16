@@ -15,9 +15,11 @@ export function useMap(location: Ref <{ lat: number; lng: number }|null> ) {
   const loading = ref(false);
   const loadingSpots = ref(false);
 
-  const getCurrentLocation = () => {
+  const getCurrentLocation = async () => {
     loading.value = true;
     error.value = "";
+
+    // const ip= await getUserIP()
 
     navigator.geolocation.getCurrentPosition(
       (position) => {

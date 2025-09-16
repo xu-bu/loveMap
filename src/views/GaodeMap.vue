@@ -3,7 +3,6 @@ import { watch, onMounted, onUnmounted, ref, nextTick, type Ref } from "vue";
 import AMapLoader from "@amap/amap-jsapi-loader";
 import { useMap } from "../composables/mapView";
 import { useGaodeSearch } from "../composables/useGaodeSearch";
-import { log } from "@/utils/logger";
 import "../assets/styles/gaodeMap.css";
 
 const location: Ref<{ lat: number; lng: number } | null> = ref(null);

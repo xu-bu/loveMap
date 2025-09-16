@@ -28,7 +28,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue"
-  ],
+, "src/utils/getIP.ts"  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

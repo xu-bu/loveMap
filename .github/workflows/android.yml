@@ -39,6 +39,7 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GAODE_API_KEY: ${{ secrets.VITE_GAODE_API_KEY }}
           VITE_GAODE_WEB_SERVICE_API_KEY: ${{ secrets.VITE_GAODE_WEB_SERVICE_API_KEY }}
+          VITE_GAODE_SECURITY_KEY: ${{ secrets.VITE_GAODE_SECURITY_KEY }}
 
       # Set up Java for Gradle
       - name: Set up JDK 21
