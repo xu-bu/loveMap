@@ -1,24 +1,59 @@
 // composables/useGaodeSearch.ts
 import { ref, computed, type Ref } from "vue";
-import { SearchResult } from "../types/interfaces";
+import { SearchResult } from "../types/google";
 import { log } from "@/utils/logger";
 
-// Gaode search result interface
+// Gaode Web Service API response interfaces
+interface GaodePOI {
+  id: string;
+  name: string;
+  type: string;
+  typecode: string;
+  address: string;
+  location: string; // "lng,lat" format
+  tel: string;
+  distance: string;
+  biz_type: string;
+  pname: string; // Province name
+  cityname: string;
+  adname: string; // District name
+  importance: string;
+  shopid: string;
+  shopinfo: string;
+  poiweight: string;
+}
+
+interface GaodeSearchResponse {
+  status: string;
+  count: string;
+  info: string;
+  infocode: string;
+  suggestion?: {
+    keywords: string[];
+    cities: Array<{
+      name: string;
+      num: string;
+      citycode: string;
+      adcode: string;
+    }>;
+  };
+  pois: GaodePOI[];
+}
+
+// Simplified search result for suggestions
 interface GaodeSearchResult {
   id: string;
   name: string;
   district: string;
   address: string;
   location: string; // "lng,lat" format
-  adcode: string;
-  citycode: string;
-  typecode: string;
+  fullAddress: string;
 }
 
 // Main Gaode Search Composable
 export function useGaodeSearch(
   location: Ref<{ lat: number; lng: number } | null>,
-  sharedZoom?: any
+  sharedZoom?: Ref<number>
 ) {
   // Reactive data
   const searchQuery = ref("");
@@ -27,58 +62,108 @@ export function useGaodeSearch(
   const showSuggestions = ref(false);
   const searchLoading = ref(false);
   const selectedSuggestionIndex = ref(-1);
-  const mapRef = ref(null);
   const searchInput = ref<HTMLElement>();
 
   // Use shared zoom if provided, otherwise create local one
   const zoom = sharedZoom || ref(15);
   const mapCenter = computed(() => searchResult.value?.position);
 
-  // Gaode API key - used in loadGaodeAPI function
-  const GAODE_API_KEY = import.meta.env.VITE_GAODE_API_KEY;
+  // Gaode Web Service API configuration
+  const VITE_GAODE_WEB_SERVICE_API_KEY = import.meta.env.VITE_GAODE_WEB_SERVICE_API_KEY;
+  const GAODE_API_BASE_URL = "https://restapi.amap.com/v3";
 
   let searchTimeout: NodeJS.Timeout | null = null;
-  let placeSearch: any = null;
-  let autoComplete: any = null; // Will be used for input suggestions
 
-  // Load Gaode Map API - HERE'S WHERE THE API KEY IS USED
-  const loadGaodeAPI = () => {
-    return new Promise((resolve, reject) => {
-      if (window.AMap) {
-        resolve(window.AMap);
-        return;
-      }
-
-      const script = document.createElement('script');
-      // API KEY IS USED HERE
-      script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_API_KEY}&plugin=AMap.PlaceSearch,AMap.Autocomplete`;
-      script.async = true;
-      script.onload = () => resolve(window.AMap);
-      script.onerror = reject;
-      document.head.appendChild(script);
+  // Build search URL with parameters
+  const buildSearchUrl = (keywords: string, cityName?: string): string => {
+    const params = new URLSearchParams({
+      key: VITE_GAODE_WEB_SERVICE_API_KEY,
+      keywords: keywords.trim(),
+      offset: "10", // Limit to 10 results for suggestions
+      page: "1",
+      extensions: "base", // Use base for faster response
+      citylimit: "false", // Allow results from other cities
     });
+
+    // Add city parameter if current location is available or city is specified
+    if (cityName) {
+      params.append("city", cityName);
+    } else if (location.value) {
+      // Use coordinates as city context (Gaode will find the nearest city)
+      params.append("city", `${location.value.lng},${location.value.lat}`);
+    }
+
+    return `${GAODE_API_BASE_URL}/place/text?${params.toString()}`;
   };
 
-  const initGaodeServices = () => {
-    if (window.AMap && !placeSearch) {
-      placeSearch = new window.AMap.PlaceSearch({
-        city: '全国',
-        pageSize: 5,
-      });
+  // Search places using Gaode Web Service API
+  const searchPlaces = async (keywords: string, cityName?: string): Promise<GaodeSearchResult[]> => {
+    if (!keywords.trim()) return [];
 
-      // NOW WE USE autoComplete FOR INPUT SUGGESTIONS
-      autoComplete = new window.AMap.Autocomplete({
-        city: '全国',
-      });
+    try {
+      const url = buildSearchUrl(keywords, cityName);
+      console.log("🔍 Gaode API request URL:", url);
+
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: GaodeSearchResponse = await response.json();
+      
+      console.log("📍 Gaode API response:", data);
+
+      // Check if the request was successful
+      if (data.status !== "1") {
+        console.error("❌ Gaode API error:", data.info, "Code:", data.infocode);
+        return [];
+      }
+
+      // Process POI results
+      if (data.pois && data.pois.length > 0) {
+        const results = data.pois.map((poi): GaodeSearchResult => {
+          // Build full address from available components
+          const addressParts = [
+            poi.pname, // Province
+            poi.cityname, // City
+            poi.adname, // District
+            poi.address // Detailed address
+          ].filter(part => part && part.trim()); // Remove empty parts
+
+          const fullAddress = addressParts.join("");
+          
+          return {
+            id: poi.id,
+            name: poi.name,
+            district: `${poi.pname}${poi.cityname}${poi.adname}`,
+            address: poi.address || "",
+            location: poi.location,
+            fullAddress: fullAddress
+          };
+        });
+
+        console.log("✅ Processed search results:", results.length);
+        return results;
+      }
+
+      // Handle suggestion results when no exact matches found
+      if (data.suggestion && data.suggestion.keywords.length > 0) {
+        console.log("💡 Gaode returned suggestions:", data.suggestion.keywords);
+        // You could implement a second search with suggested keywords here
+        return [];
+      }
+
+      return [];
+
+    } catch (error) {
+      console.error("❌ Gaode search error:", error);
+      return [];
     }
   };
 
-  const onMapReady = () => {
-    console.log("✅ Gaode Map ready - initializing search services");
-    initGaodeServices();
-  };
-
-  const onSearchInput = () => {
+  // Handle search input with debouncing
+  const onSearchInput = (): void => {
     // Clear previous timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
@@ -92,132 +177,42 @@ export function useGaodeSearch(
       return;
     }
 
-    // Wait 500ms before searching
-    searchTimeout = setTimeout(() => {
-      searchPlacesWithAutocomplete(); // Use autocomplete for faster suggestions
-    }, 500);
+    // Wait 300ms before searching to avoid too many requests
+    searchTimeout = setTimeout(async () => {
+      await performSearch();
+    }, 300);
   };
 
-  // USE AUTOCOMPLETE FOR FASTER SUGGESTIONS
-  const searchPlacesWithAutocomplete = async () => {
+  // Perform the actual search
+  const performSearch = async (): Promise<void> => {
     if (!searchQuery.value.trim()) return;
 
-    console.log("🔍 Starting Gaode autocomplete for:", searchQuery.value);
+    console.log("🔍 Starting Gaode search for:", searchQuery.value);
     searchLoading.value = true;
 
     try {
-      await loadGaodeAPI(); // Ensure API is loaded
-      initGaodeServices();
-
-      if (!autoComplete) {
-        console.error("AutoComplete not initialized");
-        return;
-      }
-
-      // Set city based on current location if available
-      if (location.value) {
-        autoComplete.setCity([location.value.lng, location.value.lat]);
-      }
-
-      const autocompletePromise = new Promise<GaodeSearchResult[]>((resolve) => {
-        autoComplete.search(searchQuery.value, (status: string, result: any) => {
-          if (status === 'complete' && result.tips) {
-            const suggestions = result.tips.slice(0, 5)
-              .filter((tip: any) => tip.location) // Only include results with location
-              .map((tip: any) => ({
-                id: tip.id || tip.adcode,
-                name: tip.name,
-                district: tip.district || '',
-                address: tip.address || '',
-                location: tip.location.toString(), // "lng,lat"
-                adcode: tip.adcode || '',
-                citycode: tip.citycode || '',
-                typecode: tip.typecode || '',
-              }));
-            resolve(suggestions);
-          } else {
-            resolve([]);
-          }
-        });
-      });
-
-      const suggestions = await autocompletePromise;
-      
-      console.log("📍 Gaode autocomplete response:", suggestions);
-
-      if (suggestions.length > 0) {
-        searchSuggestions.value = suggestions;
-        showSuggestions.value = true;
-        console.log("✅ Found autocomplete suggestions:", searchSuggestions.value.length);
-      } else {
-        // Fallback to PlaceSearch if autocomplete fails
-        await searchPlacesWithPlaceSearch();
-      }
-    } catch (error) {
-      console.error("❌ Gaode autocomplete error:", error);
-      // Fallback to PlaceSearch
-      await searchPlacesWithPlaceSearch();
-    } finally {
-      searchLoading.value = false;
-    }
-  };
-
-  // FALLBACK PLACE SEARCH METHOD
-  const searchPlacesWithPlaceSearch = async () => {
-    if (!searchQuery.value.trim()) return;
-
-    console.log("🔍 Fallback to Gaode PlaceSearch for:", searchQuery.value);
-
-    try {
-      if (!placeSearch) {
-        console.error("PlaceSearch not initialized");
-        return;
-      }
-
-      // Set city based on current location if available
-      if (location.value) {
-        placeSearch.setCity([location.value.lng, location.value.lat]);
-      }
-
-      const searchPromise = new Promise<GaodeSearchResult[]>((resolve) => {
-        placeSearch.search(searchQuery.value, (status: string, result: any) => {
-          if (status === 'complete' && result.poiList?.pois) {
-            const suggestions = result.poiList.pois.slice(0, 5).map((poi: any) => ({
-              id: poi.id,
-              name: poi.name,
-              district: poi.pname + poi.cityname + poi.adname,
-              address: poi.address,
-              location: poi.location.toString(), // "lng,lat"
-              adcode: poi.adcode,
-              citycode: poi.citycode,
-              typecode: poi.typecode,
-            }));
-            resolve(suggestions);
-          } else {
-            resolve([]);
-          }
-        });
-      });
-
-      const suggestions = await searchPromise;
+      const suggestions = await searchPlaces(searchQuery.value);
       
       if (suggestions.length > 0) {
         searchSuggestions.value = suggestions;
         showSuggestions.value = true;
-        console.log("✅ Found PlaceSearch suggestions:", searchSuggestions.value.length);
+        console.log("✅ Found suggestions:", suggestions.length);
       } else {
         searchSuggestions.value = [];
         showSuggestions.value = false;
         console.log("❌ No suggestions found");
       }
     } catch (error) {
-      console.error("❌ Gaode PlaceSearch error:", error);
+      console.error("❌ Search error:", error);
       searchSuggestions.value = [];
       showSuggestions.value = false;
+    } finally {
+      searchLoading.value = false;
     }
   };
 
-  const selectSuggestion = async (suggestion: GaodeSearchResult) => {
+  // Select a suggestion from the dropdown
+  const selectSuggestion = async (suggestion: GaodeSearchResult): Promise<void> => {
     console.log("📍 Selecting Gaode suggestion:", suggestion);
 
     searchQuery.value = suggestion.name;
@@ -228,17 +223,25 @@ export function useGaodeSearch(
       // Parse location string "lng,lat"
       const [lng, lat] = suggestion.location.split(',').map(Number);
 
+      if (isNaN(lat) || isNaN(lng)) {
+        throw new Error("Invalid location format");
+      }
+
       searchResult.value = {
         position: {
           lat: lat,
           lng: lng,
         },
         name: suggestion.name,
-        address: suggestion.district + suggestion.address,
+        address: suggestion.fullAddress,
         placeId: suggestion.id,
       };
 
-      zoom.value = 17;
+      // Set zoom level for selected place
+      if (!sharedZoom) {
+        zoom.value = 17;
+      }
+
       console.log("✅ Gaode place selected:", searchResult.value);
     } catch (error) {
       console.error("❌ Error processing Gaode place:", error);
@@ -247,21 +250,23 @@ export function useGaodeSearch(
     }
   };
 
-  const onSearchFocus = () => {
+  // Handle search input focus
+  const onSearchFocus = (): void => {
     if (searchQuery.value && searchSuggestions.value.length > 0) {
       showSuggestions.value = true;
     }
   };
 
-  const onSearchBlur = () => {
+  // Handle search input blur
+  const onSearchBlur = (): void => {
     // Delay hiding suggestions to allow for clicks
     setTimeout(() => {
       showSuggestions.value = false;
     }, 150);
   };
 
-  const handleKeyDown = (event: KeyboardEvent) => {
-    log(event.key);
+  // Handle keyboard navigation in suggestions
+  const handleKeyDown = (event: KeyboardEvent): void => {
     if (!showSuggestions.value || searchSuggestions.value.length === 0) return;
 
     switch (event.key) {
@@ -293,43 +298,57 @@ export function useGaodeSearch(
       case "Escape":
         showSuggestions.value = false;
         selectedSuggestionIndex.value = -1;
-        searchInput.value?.blur();
+        if (searchInput.value) {
+          (searchInput.value as HTMLInputElement).blur();
+        }
         break;
     }
   };
 
-  const clearSearch = () => {
+  // Clear search results and input
+  const clearSearch = (): void => {
     searchQuery.value = "";
     searchResult.value = null;
     searchSuggestions.value = [];
     showSuggestions.value = false;
     selectedSuggestionIndex.value = -1;
-    zoom.value = 15;
+    
+    if (!sharedZoom) {
+      zoom.value = 15;
+    }
 
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
   };
 
-  const createAtSearchLocation = () => {
+  // Create love spot at search location
+  const createAtSearchLocation = (): void => {
     if (searchResult.value) {
       console.log("Create at search location:", searchResult.value);
-      // This function should be implemented similar to your Google Maps version
-      // You might want to call a router.push or emit an event
+      // This function should be implemented to navigate to create page
+      // You might want to emit an event or call a router.push here
     }
   };
 
+  // Map ready handler (not needed for Web Service API)
+  const onMapReady = (): void => {
+    console.log("✅ Map ready - Web Service API doesn't need initialization");
+  };
+
   return {
+    // Reactive refs
     searchQuery,
     searchResult,
     searchSuggestions,
     showSuggestions,
     searchLoading,
     selectedSuggestionIndex,
-    mapRef,
     searchInput,
     mapCenter,
     zoom: sharedZoom ? undefined : zoom,
+
+    // Methods
     onSearchInput,
     selectSuggestion,
     onSearchFocus,
@@ -338,6 +357,5 @@ export function useGaodeSearch(
     clearSearch,
     createAtSearchLocation,
     onMapReady,
-    loadGaodeAPI, // Export this so it can be used in the component
   };
 }

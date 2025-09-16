@@ -2,7 +2,7 @@ import { ref, type Ref } from "vue";
 import { log } from "../utils/logger.js";
 import router from "@/router/index.js";
 import { getSupabaseClient } from "../services/db.js";
-import { LocationData } from "../types/interfaces.js";
+import { LocationData } from "../types/google.js";
 
 const supabaseClient = getSupabaseClient();
 

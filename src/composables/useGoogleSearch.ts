@@ -1,7 +1,7 @@
-import { SuggestionsList } from "../types/interfaces";
+import { SuggestionsList } from "../types/google";
 // composables/useSearch.ts
 import { ref, computed, type Ref } from "vue";
-import { SearchResult } from "../types/interfaces";
+import { SearchResult } from "../types/google";
 import { PlacesApiService } from "../services/search";
 import { log } from "@/utils/logger";
 

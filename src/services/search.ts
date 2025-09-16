@@ -1,7 +1,7 @@
 import {
   PlaceDetailsResponse,
   SuggestionsList,
-} from "../types/interfaces";
+} from "../types/google";
 
 // Internal Places API Service Class
 export class PlacesApiService {

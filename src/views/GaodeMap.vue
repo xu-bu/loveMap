@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import { watch, onMounted, ref, nextTick, type Ref } from "vue";
+import { watch, onMounted, onUnmounted, ref, nextTick, type Ref } from "vue";
+import AMapLoader from "@amap/amap-jsapi-loader";
 import { useMap } from "../composables/mapView";
 import { useGaodeSearch } from "../composables/useGaodeSearch";
 import { log } from "@/utils/logger";
 import "../assets/styles/gaodeMap.css";
-
-// Gaode Map types
-declare global {
-    interface Window {
-        AMap: any;
-        AMapUI: any;
-    }
-}
 
 const location: Ref<{ lat: number; lng: number } | null> = ref(null);
 const mapContainer = ref<HTMLElement>();
@@ -19,6 +12,7 @@ let map: any = null;
 let currentLocationMarker: any = null;
 let searchMarker: any = null;
 let loveSpotMarkers: any[] = [];
+let AMap: any = null;
 
 const {
     loveSpots,
@@ -51,39 +45,74 @@ const {
     createAtSearchLocation,
 } = useGaodeSearch(location);
 
-const GAODE_API_KEY = import.meta.env.VITE_GAODE_API_KEY;
+// Gaode API configuration
+const VITE_GAODE_API_KEY = import.meta.env.VITE_GAODE_API_KEY;
+const VITE_GAODE_SECURITY_KEY = import.meta.env.VITE_GAODE_SECURITY_KEY;
 
-// Initialize Gaode Map
-const initMap = () => {
-    if (!location.value || !mapContainer.value) return;
+// Load Gaode Map API using official loader
+const loadGaodeAPI = async (): Promise<any> => {
+    if (AMap) {
+        return AMap;
+    }
 
-    map = new window.AMap.Map(mapContainer.value, {
-        zoom: zoom.value || 15,
-        center: [location.value.lng, location.value.lat], // Gaode uses [lng, lat] format
-        mapStyle: 'amap://styles/normal',
-        viewMode: '3D',
-    });
+    try {
+        // Set security config
+        (window as any)._AMapSecurityConfig = {
+            securityJsCode: VITE_GAODE_SECURITY_KEY,
+        };
 
-    // Add map click event
-    map.on('click', (e: any) => {
-        const lnglat = e.lnglat;
-        handleMapClick({
-            latLng: {
-                lat: () => lnglat.lat,
-                lng: () => lnglat.lng,
-            },
+        // Load AMap with required plugins
+        AMap = await AMapLoader.load({
+            key: VITE_GAODE_API_KEY,
+            version: "2.0",
+            plugins: ["AMap.Scale"],
         });
-    });
 
-    // Add current location marker
-    addCurrentLocationMarker();
-
-    // Add love spot markers
-    addLoveSpotMarkers();
+        console.log("✅ Gaode API loaded successfully");
+        return AMap;
+    } catch (error) {
+        console.error("❌ Failed to load Gaode API:", error);
+        throw error;
+    }
 };
 
-const addCurrentLocationMarker = () => {
-    if (!map || !location.value) return;
+// Initialize Gaode Map
+const initMap = async (): Promise<void> => {
+    if (!location.value || !mapContainer.value || !AMap) return;
+
+    try {
+        map = new AMap.Map(mapContainer.value, {
+            zoom: zoom?.value || 15,
+            center: [location.value.lng, location.value.lat], // Gaode uses [lng, lat] format
+            mapStyle: 'amap://styles/normal',
+            viewMode: '3D',
+        });
+
+        // Add map click event
+        map.on('click', (e: any) => {
+            const lnglat = e.lnglat;
+            handleMapClick({
+                latLng: {
+                    lat: () => lnglat.lat,
+                    lng: () => lnglat.lng,
+                },
+            });
+        });
+
+        // Add current location marker
+        addCurrentLocationMarker();
+
+        // Add love spot markers
+        addLoveSpotMarkers();
+
+        console.log("✅ Gaode map initialized successfully");
+    } catch (error) {
+        console.error("❌ Failed to initialize map:", error);
+    }
+};
+
+const addCurrentLocationMarker = (): void => {
+    if (!map || !location.value || !AMap) return;
 
     // Remove existing marker
     if (currentLocationMarker) {
@@ -94,11 +123,11 @@ const addCurrentLocationMarker = () => {
     const markerContent = document.createElement('div');
     markerContent.className = 'current-location-marker';
     markerContent.innerHTML = `
-    <div class="pulse"></div>
-    📍
-  `;
+        <div class="pulse"></div>
+        📍
+    `;
 
-    currentLocationMarker = new window.AMap.Marker({
+    currentLocationMarker = new AMap.Marker({
         position: [location.value.lng, location.value.lat],
         content: markerContent,
         anchor: 'center',
@@ -107,8 +136,8 @@ const addCurrentLocationMarker = () => {
     map.add(currentLocationMarker);
 };
 
-const addSearchMarker = () => {
-    if (!map || !searchResult.value) return;
+const addSearchMarker = (): void => {
+    if (!map || !searchResult.value || !AMap) return;
 
     // Remove existing search marker
     if (searchMarker) {
@@ -119,23 +148,23 @@ const addSearchMarker = () => {
     markerContent.className = 'search-marker';
     markerContent.innerHTML = '🔍';
 
-    searchMarker = new window.AMap.Marker({
+    searchMarker = new AMap.Marker({
         position: [searchResult.value.position.lng, searchResult.value.position.lat],
         content: markerContent,
         anchor: 'center',
     });
 
     // Add info window
-    const infoWindow = new window.AMap.InfoWindow({
+    const infoWindow = new AMap.InfoWindow({
         content: `
-      <div class="info-window-content">
-        <h3>${searchResult.value.name}</h3>
-        <p>${searchResult.value.address}</p>
-        <button onclick="createAtSearchLocation()" class="create-button">
-          ➕ Create Love Spot Here
-        </button>
-      </div>
-    `,
+            <div class="info-window-content">
+                <h3>${searchResult.value.name}</h3>
+                <p>${searchResult.value.address}</p>
+                <button onclick="createAtSearchLocation()" class="create-button">
+                    ➕ Create Love Spot Here
+                </button>
+            </div>
+        `,
         anchor: 'bottom-center',
         offset: [0, -30],
     });
@@ -151,8 +180,8 @@ const addSearchMarker = () => {
     map.setZoom(17);
 };
 
-const addLoveSpotMarkers = () => {
-    if (!map) return;
+const addLoveSpotMarkers = (): void => {
+    if (!map || !AMap) return;
 
     // Remove existing markers
     loveSpotMarkers.forEach(marker => map.remove(marker));
@@ -163,32 +192,32 @@ const addLoveSpotMarkers = () => {
         markerContent.className = 'love-spot-marker';
         markerContent.innerHTML = '💖';
 
-        const marker = new window.AMap.Marker({
+        const marker = new AMap.Marker({
             position: [loveSpot.coordinates.lng, loveSpot.coordinates.lat],
             content: markerContent,
             anchor: 'center',
         });
 
-        const infoWindow = new window.AMap.InfoWindow({
+        const infoWindow = new AMap.InfoWindow({
             content: `
-        <div class="info-window-content love-spot-info">
-          <h3>${loveSpot.address}</h3>
-          <div class="love-spot-preview">
-            <p>${truncateText(loveSpot.content, 100)}</p>
-            ${loveSpot.photos && loveSpot.photos.length > 0 ?
-                    `<div class="photo-preview">
-                <img src="${loveSpot.photos[0]}" alt="Love spot preview" class="preview-image" />
-              </div>` : ''
-                }
-            <div class="love-spot-meta">
-              <span class="date">${formatDate(loveSpot.created_at)}</span>
-            </div>
-            <button onclick="viewLoveSpotDetails('${loveSpot.id}')" class="view-details-button">
-              👀 View Details
-            </button>
-          </div>
-        </div>
-      `,
+                <div class="info-window-content love-spot-info">
+                    <h3>${loveSpot.address}</h3>
+                    <div class="love-spot-preview">
+                        <p>${truncateText(loveSpot.content, 100)}</p>
+                        ${loveSpot.photos && loveSpot.photos.length > 0 ?
+                            `<div class="photo-preview">
+                                <img src="${loveSpot.photos[0]}" alt="Love spot preview" class="preview-image" />
+                            </div>` : ''
+                        }
+                        <div class="love-spot-meta">
+                            <span class="date">${formatDate(loveSpot.created_at)}</span>
+                        </div>
+                        <button onclick="viewLoveSpotDetails('${loveSpot.id}')" class="view-details-button">
+                            👀 View Details
+                        </button>
+                    </div>
+                </div>
+            `,
             anchor: 'bottom-center',
             offset: [0, -30],
         });
@@ -197,7 +226,7 @@ const addLoveSpotMarkers = () => {
             infoWindow.open(map, marker.getPosition());
         });
 
-        marker.loveSpotData = loveSpot;
+        (marker as any).loveSpotData = loveSpot;
         map.add(marker);
         loveSpotMarkers.push(marker);
     });
@@ -212,7 +241,7 @@ const addLoveSpotMarkers = () => {
     }
 };
 
-const centerToCurrentLocation = () => {
+const centerToCurrentLocation = (): void => {
     if (map && location.value) {
         map.setCenter([location.value.lng, location.value.lat]);
         map.setZoom(15);
@@ -220,7 +249,7 @@ const centerToCurrentLocation = () => {
 };
 
 // Watch for search result changes
-const watchSearchResult = () => {
+const watchSearchResult = (): void => {
     if (searchResult.value) {
         nextTick(() => {
             addSearchMarker();
@@ -232,33 +261,21 @@ const watchSearchResult = () => {
 };
 
 // Watch for love spots changes
-const watchLoveSpots = () => {
+const watchLoveSpots = (): void => {
     nextTick(() => {
         addLoveSpotMarkers();
     });
 };
 
-// Load Gaode Map API
-const loadGaodeAPI = () => {
-    return new Promise((resolve, reject) => {
-        if (window.AMap) {
-            resolve(window.AMap);
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_API_KEY}&plugin=AMap.PlaceSearch,AMap.Autocomplete`;
-        script.async = true;
-        script.onload = () => resolve(window.AMap);
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-};
-
 onMounted(async () => {
     try {
+        // Load Gaode API first
         await loadGaodeAPI();
+        
+        // Get current location
         await getCurrentLocation();
+        
+        // Load love spots
         await loadLoveSpots();
 
         if (location.value) {
@@ -267,7 +284,14 @@ onMounted(async () => {
             });
         }
     } catch (error) {
-        console.error('Failed to load Gaode Map:', error);
+        console.error('Failed to initialize Gaode Map:', error);
+    }
+});
+
+onUnmounted(() => {
+    if (map) {
+        map.destroy();
+        map = null;
     }
 });
 
@@ -312,18 +336,33 @@ watch(loveSpots, (newSpots) => {
         <!-- Search Bar with Autocomplete -->
         <div class="search-container">
             <div class="search-wrapper">
-                <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索地点" class="search-input"
-                    @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur" @keydown="handleKeyDown" />
+                <input 
+                    ref="searchInput" 
+                    v-model="searchQuery" 
+                    type="text" 
+                    placeholder="搜索地点" 
+                    class="search-input"
+                    @input="onSearchInput" 
+                    @focus="onSearchFocus" 
+                    @blur="onSearchBlur" 
+                    @keydown="handleKeyDown" 
+                />
                 <button @click="clearSearch" v-if="searchQuery" class="clear-search">
                     ×
                 </button>
 
                 <!-- Search Results Dropdown -->
                 <div v-if="showSuggestions && searchSuggestions.length > 0" class="search-suggestions">
-                    <div v-for="(suggestion, index) in searchSuggestions" :key="index" :class="[
-                        'suggestion-item',
-                        { selected: selectedSuggestionIndex === index },
-                    ]" @mousedown.prevent="selectSuggestion(suggestion)" @mouseenter="selectedSuggestionIndex = index">
+                    <div 
+                        v-for="(suggestion, index) in searchSuggestions" 
+                        :key="index" 
+                        :class="[
+                            'suggestion-item',
+                            { selected: selectedSuggestionIndex === index },
+                        ]" 
+                        @mousedown.prevent="selectSuggestion(suggestion)" 
+                        @mouseenter="selectedSuggestionIndex = index"
+                    >
                         <div class="suggestion-icon">📍</div>
                         <div class="suggestion-text">
                             <div class="suggestion-name">
@@ -350,4 +389,3 @@ watch(loveSpots, (newSpots) => {
         <button @click="centerToCurrentLocation" class="fab">🎯</button>
     </div>
 </template>
-
