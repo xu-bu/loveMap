@@ -16,6 +16,7 @@ export const useCreateLoveSpot = () => {
   // Get coordinates from query parameters
   const lat = computed(() => route.query.lat as string);
   const lng = computed(() => route.query.lng as string);
+  const origin = computed(() => route.query.origin as string);
 
   // Reactive data
   const address: Ref<string> = ref("");
@@ -34,10 +35,14 @@ export const useCreateLoveSpot = () => {
 
     try {
       loading.value = true;
-      address.value = await googleSearchService.getAddress(
-        lat.value,
-        lng.value
-      );
+      if (origin.value === "google") {
+        address.value = await googleSearchService.getAddress(
+          lat.value,
+          lng.value
+        );
+      } else if (origin.value === "gaode") {
+        address.value = "";
+      }
     } catch (error) {
       console.error("Error getting address:", error);
       address.value = "Unable to load address";

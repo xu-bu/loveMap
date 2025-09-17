@@ -1,13 +1,13 @@
 import { ref, type Ref } from "vue";
-import { log } from "../utils/logger.js";
-import router from "@/router/index.js";
-import { getSupabaseClient } from "../services/db.js";
-import { LocationData } from "../types/db.d.ts";
-import { locateUserByIP } from "../utils/locateUserByIP.ts"
+import { log } from "../utils/logger";
+import router from "@/router/index";
+import { getSupabaseClient } from "../services/db";
+import type {  LocationData } from "../types/db";
+import { locateUserByIP } from "../utils/locateUserByIP";
 
 const supabaseClient = getSupabaseClient();
 
-export function useMap(location: Ref <{ lat: number; lng: number }|null> ) {
+export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
   const VITE_GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const VITE_MAP_ID = import.meta.env.VITE_MAP_ID;
 
@@ -20,9 +20,9 @@ export function useMap(location: Ref <{ lat: number; lng: number }|null> ) {
     loading.value = true;
     error.value = "";
 
-    const location= await locateUserByIP()
+    const location = await locateUserByIP();
 
-    log(location)
+    log(location);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -73,7 +73,7 @@ export function useMap(location: Ref <{ lat: number; lng: number }|null> ) {
   function handleMapClick(event: any) {
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
-    router.push({ name: "CreateLoveSpot", query: { lat, lng } });
+    router.push({ name: "CreateLoveSpot", query: { lat, lng,origin:"google" } });
   }
 
   function handleLoveSpotClick(loveSpot: LocationData) {

@@ -1,22 +1,16 @@
-
 .gaode-map-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.header h1 {
+  /* Reset any default margins/padding */
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  padding: 0;
+}
+
+/* Reset any default body/html margins that might affect the container */
+.gaode-map-container * {
+  box-sizing: border-box;
 }
 
 .control-panel {
@@ -28,12 +22,19 @@
   flex-wrap: wrap;
   align-items: center;
   border-bottom: 1px solid #e2e8f0;
+  /* Position relative to allow for toolbar space */
+  position: relative;
+  z-index: 500;
+  /* Temporarily remove margin to test */
+  /* margin-top: 50px; */
 }
 
 .search-container {
   position: relative;
   flex: 1;
   min-width: 300px;
+  /* Keep search container z-index lower than toolbar */
+  z-index: 600;
 }
 
 .search-input {
@@ -43,6 +44,8 @@
   border-radius: 8px;
   font-size: 1rem;
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 600;
 }
 
 .search-input:focus {
@@ -62,7 +65,10 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.1);
   max-height: 300px;
   overflow-y: auto;
-  z-index: 1000;
+  /* Increased z-index to appear above Gaode Maps toolbar */
+  z-index: 9999;
+  /* Add margin top to create space */
+  margin-top: 2px;
 }
 
 .suggestion-item {
@@ -148,11 +154,22 @@
   flex: 1;
   position: relative;
   background: #f0f8ff;
+  /* Ensure map wrapper has lower z-index than control panel */
+  z-index: 1;
 }
 
 .map-container {
   width: 100%;
   height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure Gaode Maps toolbar appears above control panel */
+.map-container .amap-toolbar {
+  z-index: 1000 !important;
+  /* Ensure toolbar is positioned at the top */
+  top: 10px !important;
 }
 
 .loading-overlay {
@@ -243,6 +260,8 @@
     padding: 1rem;
     flex-direction: column;
     align-items: stretch;
+    /* Reduce margin on mobile for better space utilization */
+    margin-top: 40px;
   }
 
   .search-container {
@@ -271,4 +290,18 @@
   .header h1 {
     font-size: 1.2rem;
   }
+
+  /* Ensure suggestions dropdown works well on mobile */
+  .suggestions-dropdown {
+    max-height: 250px;
+  }
+}
+
+.amap-marker {
+  z-index: 1000 !important;
+  pointer-events: auto !important;
+}
+
+.amap-info-window {
+  z-index: 1001 !important;
 }

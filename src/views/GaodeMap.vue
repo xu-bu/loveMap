@@ -1,42 +1,26 @@
 <template>
   <div class="gaode-map-container">
-    <!-- Header -->
-    <div class="header">
-      <h1>🗺️ Gaode Maps Plugin Demo</h1>
-    </div>
-
     <!-- Control Panel -->
     <div class="control-panel">
       <div class="search-container">
-        <input
-          ref="searchInput"
-          v-model="searchQuery"
-          type="text"
-          placeholder="搜索地点 (Search for places...)"
-          class="search-input"
-          @input="onSearchInput"
-          @focus="onSearchFocus"
-          @blur="onSearchBlur"
-          @keydown="handleKeyDown"
-        />
+        <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索地点 (Search for places...)"
+          class="search-input" @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur"
+          @keydown="handleKeyDown" />
 
         <!-- Search Suggestions Dropdown -->
-        <div
-          v-if="showSuggestions && suggestions.length > 0"
-          class="suggestions-dropdown"
-        >
-          <div
-            v-for="(suggestion, index) in suggestions"
-            :key="index"
+        <div v-if="showSuggestions && suggestions.length > 0" class="suggestions-dropdown">
+          <div v-for="(suggestion, index) in suggestions" :key="index"
             :class="['suggestion-item', { selected: selectedIndex === index }]"
-            @mousedown.prevent="selectSuggestion(suggestion)"
-            @mouseenter="selectedIndex = index"
-          >
+            @mousedown.prevent="selectSuggestion(suggestion)" @mouseenter="selectedIndex = index">
             <span class="suggestion-icon">📍</span>
             <div class="suggestion-text">
               <div class="suggestion-name">{{ suggestion.name }}</div>
               <div class="suggestion-address">{{ suggestion.district }}</div>
             </div>
+            <button @click.stop="createLoveSpotFromSuggestion(suggestion)" class="create-spot-btn"
+              title="Create Love Spot">
+              ❤️
+            </button>
           </div>
         </div>
       </div>
@@ -49,21 +33,15 @@
           🔍 Nearby POIs
         </button>
         <button @click="clearSearch" class="btn btn-secondary">🗑️ Clear</button>
-        <button @click="toggleToolbar" class="btn btn-secondary">
-          🔧 Toggle Toolbar
-        </button>
-        <button @click="toggleScale" class="btn btn-secondary">
-          📏 Toggle Scale
-        </button>
       </div>
     </div>
 
     <!-- Map Container -->
     <div class="map-wrapper">
-      <div v-if="loading" class="loading-overlay">
+      <div v-if="loading || loadingSpots" class="loading-overlay">
         <div class="loading-content">
           <div class="spinner"></div>
-          <span>Loading Gaode Maps...</span>
+          <span>{{ getLoadingMessage() }}</span>
         </div>
       </div>
 
@@ -90,12 +68,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from "vue";
-import { GaodePOI, SelectedPlace, AMapInstance } from "../types/gaode";
+import { ref, onMounted, onUnmounted, nextTick, onActivated } from "vue";
+import { GaodePOI, SelectedPlace } from "../types/gaode";
+import type { LocationData } from "../types/db";
 import "../assets/styles/gaodeMap.css";
 import { useRouter } from "vue-router";
+import { useMap } from "../composables/mapView";
+import { GAODE_SEARCH_NEARBY_RADIUS } from '../consts'
+import { log } from "@/utils/logger";
+import { loadGaodeAPI, isGaodeAPIReady, createMapPlugins } from "../composables/gaodeMap";
 
 const router = useRouter();
+
+// Use the map composable
+const location = ref<{ lat: number; lng: number } | null>(null);
+const {
+  loveSpots,
+  loadingSpots,
+  loadLoveSpots,
+  handleLoveSpotClick,
+  truncateText,
+  formatDate
+} = useMap(location);
+
 // Reactive data
 const loading = ref(true);
 const error = ref("");
@@ -108,66 +103,47 @@ const searchInput = ref<HTMLInputElement>();
 
 // Map and plugin instances
 let map: any = null;
-let autoComplete: any = null;
-let placeSearch: any = null;
-let toolbar: any = null;
-let scale: any = null;
-let geolocation: any = null;
+let plugins: any = {};
 let currentLocationMarker: any = null;
 let searchMarkers: any[] = [];
-
-// Configuration - Replace with your actual API keys
-const GAODE_API_KEY =
-  import.meta.env.VITE_GAODE_API_KEY;
-const GAODE_SECURITY_CODE =
-  import.meta.env.VITE_GAODE_SECURITY_KEY;
+let loveSpotMarkers: any[] = [];
 
 let searchTimeout: NodeJS.Timeout | null = null;
 let pressTimer: number | null = null;
 
-// Load Gaode Maps API with plugins
-const loadGaodeAPI = (): Promise<AMapInstance> => {
-  return new Promise((resolve, reject) => {
-    if (window.AMap) {
-      resolve(window.AMap as AMapInstance);
-      return;
-    }
-
-    // Set security config
-    window._AMapSecurityConfig = {
-      securityJsCode: GAODE_SECURITY_CODE,
-    };
-
-    const script = document.createElement("script");
-    // Load with multiple plugins synchronously
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_API_KEY}&plugin=AMap.AutoComplete,AMap.PlaceSearch,AMap.ToolBar,AMap.Scale,AMap.Geolocation`;
-    script.async = true;
-    script.onload = () => resolve(window.AMap as AMapInstance);
-    script.onerror = () => reject(new Error("Failed to load Gaode Maps API"));
-    document.head.appendChild(script);
-  });
+// Loading state management
+const getLoadingMessage = () => {
+  if (loading.value) {
+    return isGaodeAPIReady() ? 'Initializing map...' : 'Loading Gaode Maps API...';
+  }
+  return 'Loading Love Spots...';
 };
 
-// Initialize map and plugins
-const initMap = async () => {
+// Fast initialization for returning users
+const quickInitMap = async () => {
   try {
+    loading.value = true;
+
+    // Get AMap instance (either cached or freshly loaded)
     const AMap = await loadGaodeAPI();
 
-    // Create map instance
+    // Create map instance (always needed per component)
     map = new AMap.Map("gaode-map", {
       zoom: 11,
       center: [116.397428, 39.90923], // Beijing
       mapStyle: "amap://styles/normal",
       viewMode: "3D",
+      clickableIcons: true,
+      keyboardShortcuts: true,
     });
 
-    // Initialize plugins after map is created
-    await initPlugins(AMap);
+    // Initialize plugins (reusable function)
+    plugins = createMapPlugins(map, AMap);
 
     // Set up event listeners
     setupEventListeners();
 
-    console.log("✅ Gaode Map and plugins initialized successfully");
+    console.log("✅ Map initialized quickly");
     loading.value = false;
   } catch (err) {
     console.error("❌ Failed to initialize map:", err);
@@ -176,45 +152,62 @@ const initMap = async () => {
   }
 };
 
-// Initialize all plugins
-const initPlugins = async (AMap: AMapInstance) => {
-  // Method 1: Direct instantiation (since plugins are loaded synchronously)
+// Load and display love spots (should happen every time)
+const refreshLoveSpots = async () => {
+  try {
+    await loadLoveSpots();
+    displayLoveSpots();
+    console.log("✅ Love spots refreshed");
+  } catch (err) {
+    console.error("❌ Failed to load love spots:", err);
+    error.value = "Failed to load love spots";
+  }
+};
 
-  // Initialize ToolBar
-  toolbar = new AMap.ToolBar({
-    position: "RT", // Right Top
-  });
-  map.addControl(toolbar);
+// Display love spots on the map
+const displayLoveSpots = () => {
+  if (!map) return;
 
-  // Initialize Scale
-  scale = new AMap.Scale({
-    position: "LB", // Left Bottom
-  });
-  map.addControl(scale);
+  // Clear existing love spot markers
+  loveSpotMarkers.forEach((marker) => map.remove(marker));
+  loveSpotMarkers = [];
 
-  // Initialize AutoComplete
-  autoComplete = new AMap.AutoComplete({
-    city: "全国",
-    citylimit: false,
-  });
+  loveSpots.value.forEach((loveSpot: LocationData) => {
+    const marker = new window.AMap.Marker({
+      position: [loveSpot.coordinates.lng, loveSpot.coordinates.lat],
+      content: `<div style="background: #ff69b4; color: white; padding: 8px; border-radius: 50%; font-size: 20px; border: 2px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">❤️</div>`,
+      anchor: "center",
+    });
 
-  // Initialize PlaceSearch
-  placeSearch = new AMap.PlaceSearch({
-    city: "全国",
-    citylimit: false,
-    map: map,
-    panel: false,
-  });
+    const infoWindow = new window.AMap.InfoWindow({
+      content: `
+        <div style="padding: 12px; max-width: 250px;">
+          <h3 style="margin: 0 0 8px 0; color: #ff69b4;">${loveSpot.address}</h3>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">${truncateText(loveSpot.content || '', 100)}</p>
+          <div style="color: #999; font-size: 12px; margin-bottom: 8px;">
+            📍 ${loveSpot.address || 'Unknown location'}<br>
+            📅 ${formatDate(loveSpot.created_at)}
+          </div>
+        </div>
+      `,
+      anchor: "bottom-center",
+      offset: [0, -35],
+    });
 
-  // Initialize Geolocation
-  geolocation = new AMap.Geolocation({
-    enableHighAccuracy: true,
-    timeout: 10000,
+    marker.on("click", () => {
+      infoWindow.open(map, [loveSpot.coordinates.lng, loveSpot.coordinates.lat]);
+      handleLoveSpotClick(loveSpot);
+    });
+
+    map.add(marker);
+    loveSpotMarkers.push(marker);
   });
 };
 
 // Setup event listeners
 const setupEventListeners = () => {
+  const { autoComplete, placeSearch } = plugins;
+
   // AutoComplete events
   autoComplete.on("select", (e: any) => {
     const poi = e.poi;
@@ -231,12 +224,12 @@ const setupEventListeners = () => {
     }
   });
 
+  // Long press handlers for creating love spots
   map.on("mousedown", (e: any) => {
     pressTimer = window.setTimeout(() => {
       const { lng, lat } = e.lnglat;
-      // 触发长按逻辑
       router.push({ path: "/createLoveSpot", query: { lat, lng } });
-    }, 800); // 800ms 作为长按的阈值
+    }, 800);
   });
 
   map.on("mouseup", () => {
@@ -247,6 +240,28 @@ const setupEventListeners = () => {
   });
 
   map.on("mouseout", () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  // Touch events for mobile
+  map.on("touchstart", (e: any) => {
+    pressTimer = window.setTimeout(() => {
+      const { lng, lat } = e.lnglat;
+      router.push({ path: "/createLoveSpot", query: { lat, lng } });
+    }, 800);
+  });
+
+  map.on("touchend", () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+
+  map.on("touchmove", () => {
     if (pressTimer) {
       clearTimeout(pressTimer);
       pressTimer = null;
@@ -275,6 +290,7 @@ const onSearchInput = () => {
 
 // Perform autocomplete search
 const performAutoComplete = () => {
+  const { autoComplete } = plugins;
   if (!autoComplete || !searchQuery.value.trim()) return;
 
   autoComplete.search(searchQuery.value, (status: string, result: any) => {
@@ -301,6 +317,21 @@ const performAutoComplete = () => {
   });
 };
 
+// Create love spot from suggestion
+const createLoveSpotFromSuggestion = (suggestion: GaodePOI) => {
+  log(suggestion)
+  const { lng, lat } = suggestion.location;
+  router.push({
+    path: "/createLoveSpot",
+    query: {
+      lat,
+      lng,
+      address: suggestion.address || suggestion.name,
+      name: suggestion.name
+    }
+  });
+};
+
 // Select suggestion from dropdown
 const selectSuggestion = (suggestion: GaodePOI) => {
   searchQuery.value = suggestion.name;
@@ -316,7 +347,7 @@ const selectSuggestion = (suggestion: GaodePOI) => {
     const { lng, lat } = suggestion.location;
     map.setCenter([lng, lat]);
     map.setZoom(16);
-    addMarker([lng, lat], "🔍", suggestion.name);
+    addMarker([lng, lat], "🔍", suggestion.name, suggestion.address);
   }
 };
 
@@ -335,7 +366,7 @@ const selectSuggestionFromAutocomplete = (poi: any) => {
   const { lng, lat } = poi.location;
   map.setCenter([lng, lat]);
   map.setZoom(16);
-  addMarker([lng, lat], "🔍", poi.name);
+  addMarker([lng, lat], "🔍", poi.name, poi.address);
 };
 
 // Show place details
@@ -349,11 +380,12 @@ const showPlaceDetails = (poi: any) => {
   };
 };
 
-// Add marker to map
+// Add marker to map with create love spot button
 const addMarker = (
   position: [number, number],
   content: string,
-  title: string
+  title: string,
+  address?: string
 ) => {
   // Clear existing search markers
   searchMarkers.forEach((marker) => map.remove(marker));
@@ -365,9 +397,21 @@ const addMarker = (
     anchor: "center",
   });
 
-  // Add info window
+  // Add info window with create love spot button
   const infoWindow = new window.AMap!.InfoWindow({
-    content: `<div style="padding: 12px;"><strong>${title}</strong></div>`,
+    content: `
+      <div style="padding: 12px; max-width: 250px;">
+        <strong>${title}</strong>
+        ${address ? `<br><small style="color: #666;">${address}</small>` : ''}
+        <div style="margin-top: 10px;">
+          <button 
+            onclick="window.createLoveSpotFromMarker(${position[1]}, ${position[0]}, '${encodeURIComponent(address || title)}', '${encodeURIComponent(title)}')"
+            style="background: #ff69b4; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            ❤️ Create Love Spot
+          </button>
+        </div>
+      </div>
+    `,
     anchor: "bottom-center",
     offset: [0, -35],
   });
@@ -380,8 +424,22 @@ const addMarker = (
   searchMarkers.push(marker);
 };
 
+// Global function for info window button
+(window as any).createLoveSpotFromMarker = (lat: number, lng: number, address: string, name: string) => {
+  router.push({
+    path: "/createLoveSpot",
+    query: {
+      lat,
+      lng,
+      address: decodeURIComponent(address),
+      name: decodeURIComponent(name)
+    }
+  });
+};
+
 // Get current location using Geolocation plugin
 const getCurrentLocation = () => {
+  const { geolocation } = plugins;
   if (!geolocation) return;
 
   geolocation.getCurrentPosition((status: string, result: any) => {
@@ -419,6 +477,7 @@ const getCurrentLocation = () => {
 
 // Search nearby POIs using PlaceSearch
 const searchNearby = () => {
+  const { placeSearch } = plugins;
   if (!placeSearch || !map) return;
 
   const center = map.getCenter();
@@ -426,7 +485,7 @@ const searchNearby = () => {
   placeSearch.searchNearBy(
     "",
     [center.lng, center.lat],
-    1000,
+    GAODE_SEARCH_NEARBY_RADIUS,
     (status: string, result: any) => {
       if (status === "complete" && result.poiList && result.poiList.pois) {
         // Clear existing markers
@@ -438,25 +497,26 @@ const searchNearby = () => {
           const { lng, lat } = poi.location;
           const marker = new window.AMap.Marker({
             position: [lng, lat],
-            content: `<div style="background: #ff6b6b; color: white; padding: 6px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${
-              index + 1
-            }</div>`,
+            content: `<div style="background: #ff6b6b; color: white; padding: 6px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${index + 1}</div>`,
             anchor: "center",
           });
 
           const infoWindow = new window.AMap.InfoWindow({
             content: `
-            <div style="padding: 12px; max-width: 200px;">
-              <strong>${poi.name}</strong><br>
-              <small style="color: #666;">${poi.address}</small><br>
-              ${
-                poi.tel
-                  ? `<small style="color: #666;">📞 ${poi.tel}</small><br>`
-                  : ""
-              }
-              <small style="color: #999;">Distance: ${poi.distance}m</small>
-            </div>
-          `,
+              <div style="padding: 12px; max-width: 200px;">
+                <strong>${poi.name}</strong><br>
+                <small style="color: #666;">${poi.address}</small><br>
+                ${poi.tel ? `<small style="color: #666;">📞 ${poi.tel}</small><br>` : ""}
+                <small style="color: #999;">Distance: ${poi.distance}m</small>
+                <div style="margin-top: 10px;">
+                  <button 
+                    onclick="window.createLoveSpotFromMarker(${lat}, ${lng}, '${encodeURIComponent(poi.address || poi.name)}', '${encodeURIComponent(poi.name)}')"
+                    style="background: #ff69b4; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                    ❤️ Create Love Spot
+                  </button>
+                </div>
+              </div>
+            `,
             anchor: "bottom-center",
             offset: [0, -35],
           });
@@ -478,28 +538,6 @@ const searchNearby = () => {
       }
     }
   );
-};
-
-// Toggle toolbar visibility
-const toggleToolbar = () => {
-  if (toolbar) {
-    if (toolbar.getVisible && toolbar.getVisible()) {
-      toolbar.hide();
-    } else {
-      toolbar.show();
-    }
-  }
-};
-
-// Toggle scale visibility
-const toggleScale = () => {
-  if (scale) {
-    if (scale.getVisible && scale.getVisible()) {
-      scale.hide();
-    } else {
-      scale.show();
-    }
-  }
 };
 
 // Clear search and markers
@@ -565,9 +603,20 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 // Lifecycle hooks
 onMounted(() => {
-  nextTick(() => {
-    initMap();
+  nextTick(async () => {
+    // Initialize map (fast if API already loaded)
+    await quickInitMap();
+    // Always refresh love spots
+    await refreshLoveSpots();
   });
+});
+
+// For keep-alive components - refresh love spots when activated
+onActivated(async () => {
+  if (map) {
+    console.log("📱 Component activated - refreshing love spots");
+    await refreshLoveSpots();
+  }
 });
 
 onUnmounted(() => {
@@ -575,11 +624,20 @@ onUnmounted(() => {
   if (searchTimeout) {
     clearTimeout(searchTimeout);
   }
+  
+  if (pressTimer) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
 
   // Destroy map instance
   if (map) {
     map.destroy();
+    map = null;
   }
+
+  // Clean up global function
+  delete (window as any).createLoveSpotFromMarker;
 });
 
 // Expose methods for parent components
@@ -587,6 +645,9 @@ defineExpose({
   map,
   getCurrentLocation,
   searchNearby,
+  loveSpots,
+  displayLoveSpots,
   clearSearch,
+  refreshLoveSpots,
 });
 </script>
