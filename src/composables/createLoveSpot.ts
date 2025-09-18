@@ -3,6 +3,8 @@ import { useRoute, useRouter } from "vue-router";
 import { getSupabaseClient } from "../services/db";
 import { GoogleSearchService } from "../services/googleSearch";
 import { LocationData, PhotoData, Database } from "../types/db";
+import { getRegeoCode } from "../composables/gaodeMap";
+import { log } from "@/utils/logger";
 
 const supabaseClient = getSupabaseClient();
 // Global table reference
@@ -17,9 +19,10 @@ export const useCreateLoveSpot = () => {
   const lat = computed(() => route.query.lat as string);
   const lng = computed(() => route.query.lng as string);
   const origin = computed(() => route.query.origin as string);
+  const address = computed(() => route.query.address as string);
 
   // Reactive data
-  const address: Ref<string> = ref("");
+  const addressRef: Ref<string> = ref(address.value);
   const loading: Ref<boolean> = ref(true);
   const content: Ref<string> = ref("");
   const uploadedPhotos: Ref<PhotoData[]> = ref([]);
@@ -31,21 +34,25 @@ export const useCreateLoveSpot = () => {
 
   // Reverse geocode to get address
   const getAddress = async (): Promise<void> => {
-    if (!lat.value || !lng.value) return;
+    log(addressRef.value);
+    if (!lat.value || !lng.value || addressRef.value) {
+      loading.value = false;
+      return;
+    }
 
     try {
       loading.value = true;
       if (origin.value === "google") {
-        address.value = await googleSearchService.getAddress(
+        addressRef.value = await googleSearchService.getAddress(
           lat.value,
           lng.value
         );
       } else if (origin.value === "gaode") {
-        address.value = "";
+        addressRef.value = await getRegeoCode(lat.value, lng.value);
       }
     } catch (error) {
       console.error("Error getting address:", error);
-      address.value = "Unable to load address";
+      addressRef.value = "Unable to load address";
     } finally {
       loading.value = false;
     }
@@ -168,7 +175,7 @@ export const useCreateLoveSpot = () => {
           lat: Number(lat.value),
           lng: Number(lng.value),
         },
-        address: address.value,
+        address: addressRef.value,
         photos: uploadedPhotos.value.map((photo) => photo.url), // Array of Supabase URLs
         content: content.value,
         created_at: new Date(),
@@ -260,7 +267,7 @@ export const useCreateLoveSpot = () => {
     lng,
 
     // Reactive data
-    address,
+    address: addressRef,
     loading,
     content,
     uploadedPhotos,

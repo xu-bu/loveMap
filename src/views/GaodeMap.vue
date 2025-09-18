@@ -1,8 +1,25 @@
 <template>
   <div class="gaode-map-container">
-    <!-- Control Panel -->
-    <div class="control-panel">
-      <div class="search-container">
+    <!-- Map Container -->
+    <div class="map-wrapper">
+      <!-- Loading -->
+      <div v-if="loading || loadingSpots" class="loading-overlay">
+        <div class="loading-content">
+          <div class="spinner"></div>
+          <span>{{ getLoadingMessage() }}</span>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
+
+      <!-- Map -->
+      <div id="gaode-map" class="map-container"></div>
+
+      <!-- Floating Search Bar -->
+      <div class="floating-search">
         <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索地点 (Search for places...)"
           class="search-input" @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur"
           @keydown="handleKeyDown" />
@@ -25,31 +42,18 @@
         </div>
       </div>
 
-      <div class="button-group">
-        <button @click="getCurrentLocation" class="btn btn-primary">
-          📍 Current Location
+      <!-- Floating Control Buttons -->
+      <div class="floating-controls">
+        <button @click="getCurrentLocation" class="control-btn primary">
+          📍
         </button>
-        <button @click="searchNearby" class="btn btn-secondary">
-          🔍 Nearby POIs
+        <button @click="searchNearby" class="control-btn">
+          🔍
         </button>
-        <button @click="clearSearch" class="btn btn-secondary">🗑️ Clear</button>
+        <button @click="clearSearch" class="control-btn">
+          🗑️
+        </button>
       </div>
-    </div>
-
-    <!-- Map Container -->
-    <div class="map-wrapper">
-      <div v-if="loading || loadingSpots" class="loading-overlay">
-        <div class="loading-content">
-          <div class="spinner"></div>
-          <span>{{ getLoadingMessage() }}</span>
-        </div>
-      </div>
-
-      <div v-if="error" class="error-message">
-        {{ error }}
-      </div>
-
-      <div id="gaode-map" class="map-container"></div>
 
       <!-- Info Panel -->
       <div v-if="selectedPlace" class="info-panel">
@@ -58,9 +62,7 @@
           <div v-if="selectedPlace.address">📍 {{ selectedPlace.address }}</div>
           <div v-if="selectedPlace.tel">📞 {{ selectedPlace.tel }}</div>
           <div v-if="selectedPlace.type">🏷️ {{ selectedPlace.type }}</div>
-          <div v-if="selectedPlace.distance">
-            📏 {{ selectedPlace.distance }}m away
-          </div>
+          <div v-if="selectedPlace.distance">📏 {{ selectedPlace.distance }}m away</div>
         </div>
       </div>
     </div>
@@ -74,7 +76,7 @@ import type { LocationData } from "../types/db";
 import "../assets/styles/gaodeMap.css";
 import { useRouter } from "vue-router";
 import { useMap } from "../composables/mapView";
-import { GAODE_SEARCH_NEARBY_RADIUS } from '../consts'
+import { GAODE_SEARCH_NEARBY_RADIUS, MAP_ZOOM_LEVEL, IS_APP } from '../consts'
 import { log } from "@/utils/logger";
 import { loadGaodeAPI, isGaodeAPIReady, createMapPlugins } from "../composables/gaodeMap";
 
@@ -120,7 +122,7 @@ const getLoadingMessage = () => {
 };
 
 // Fast initialization for returning users
-const quickInitMap = async () => {
+const initMap = async () => {
   try {
     loading.value = true;
 
@@ -129,8 +131,8 @@ const quickInitMap = async () => {
 
     // Create map instance (always needed per component)
     map = new AMap.Map("gaode-map", {
-      zoom: 11,
-      center: [116.397428, 39.90923], // Beijing
+      zoom: MAP_ZOOM_LEVEL,
+      center: [116.397428, 39.90923], // Beijing, if no center set, will auto locate
       mapStyle: "amap://styles/normal",
       viewMode: "3D",
       clickableIcons: true,
@@ -206,7 +208,7 @@ const displayLoveSpots = () => {
 
 // Setup event listeners
 const setupEventListeners = () => {
-  const { autoComplete, placeSearch } = plugins;
+  const { autoComplete, placeSearch, geocoder } = plugins;
 
   // AutoComplete events
   autoComplete.on("select", (e: any) => {
@@ -225,48 +227,56 @@ const setupEventListeners = () => {
   });
 
   // Long press handlers for creating love spots
-  map.on("mousedown", (e: any) => {
-    pressTimer = window.setTimeout(() => {
-      const { lng, lat } = e.lnglat;
-      router.push({ path: "/createLoveSpot", query: { lat, lng } });
-    }, 800);
-  });
+  if (IS_APP) {
+    // Touch events for mobile
+    map.on("touchstart", (e: any) => {
+      pressTimer = window.setTimeout(() => {
+        const { lng, lat } = e.lnglat;
+        router.push({ path: "/createLoveSpot", query: { lat, lng } });
+      }, 800);
+    });
 
-  map.on("mouseup", () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-    }
-  });
+    map.on("touchend", () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    });
 
-  map.on("mouseout", () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-    }
-  });
+    map.on("touchmove", () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    });
+  } else {
+    map.on("mousedown", (e: any) => {
+      pressTimer = window.setTimeout(() => {
+        const { lng, lat } = e.lnglat;
+        geocoder.getAddress([lng, lat], (status, result) => {
+          const address = status === "complete" && result.info === "OK"
+            ? result.regeocode.formattedAddress
+            : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          log(address)
+        })
+        router.push({ path: "/createLoveSpot", query: { lat, lng, origin: "gaode" }, state: { geocoder } });
+      }, 800);
+    });
 
-  // Touch events for mobile
-  map.on("touchstart", (e: any) => {
-    pressTimer = window.setTimeout(() => {
-      const { lng, lat } = e.lnglat;
-      router.push({ path: "/createLoveSpot", query: { lat, lng } });
-    }, 800);
-  });
+    map.on("mouseup", () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    });
 
-  map.on("touchend", () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-    }
-  });
-
-  map.on("touchmove", () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-    }
-  });
+    map.on("mouseout", () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+    });
+  }
 };
 
 // Handle search input with debouncing
@@ -604,8 +614,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 // Lifecycle hooks
 onMounted(() => {
   nextTick(async () => {
-    // Initialize map (fast if API already loaded)
-    await quickInitMap();
+    if (!map) await initMap();
     // Always refresh love spots
     await refreshLoveSpots();
   });
@@ -614,6 +623,7 @@ onMounted(() => {
 // For keep-alive components - refresh love spots when activated
 onActivated(async () => {
   if (map) {
+    console.log("onActivated")
     console.log("📱 Component activated - refreshing love spots");
     await refreshLoveSpots();
   }
@@ -624,7 +634,7 @@ onUnmounted(() => {
   if (searchTimeout) {
     clearTimeout(searchTimeout);
   }
-  
+
   if (pressTimer) {
     clearTimeout(pressTimer);
     pressTimer = null;

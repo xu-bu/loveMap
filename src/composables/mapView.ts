@@ -2,7 +2,7 @@ import { ref, type Ref } from "vue";
 import { log } from "../utils/logger";
 import router from "@/router/index";
 import { getSupabaseClient } from "../services/db";
-import type {  LocationData } from "../types/db";
+import type { LocationData } from "../types/db";
 import { locateUserByIP } from "../utils/locateUserByIP";
 
 const supabaseClient = getSupabaseClient();
@@ -73,7 +73,10 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
   function handleMapClick(event: any) {
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
-    router.push({ name: "CreateLoveSpot", query: { lat, lng,origin:"google" } });
+    router.push({
+      name: "CreateLoveSpot",
+      query: { lat, lng, origin: "google" },
+    });
   }
 
   function handleLoveSpotClick(loveSpot: LocationData) {

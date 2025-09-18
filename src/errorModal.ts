@@ -27,7 +27,7 @@ export const initGlobalErrorHandler = (app: App) => {
   };
 
   // Vue warning handler (optional - for development warnings)
-  app.config.warnHandler = (msg: string, instance: any, trace: string) => {
+  app.config.warnHandler = (msg: string) => {
     console.warn('Vue Warning:', msg);
     // Uncomment if you want warnings as popups too
     // showErrorModal(`Vue Warning: ${msg}`, 'Warning');

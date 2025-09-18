@@ -1,57 +1,52 @@
 .gaode-map-container {
   height: 100vh;
-  display: flex;
-  flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  /* Reset any default margins/padding */
   margin: 0;
   padding: 0;
 }
 
-/* Reset any default body/html margins that might affect the container */
-.gaode-map-container * {
-  box-sizing: border-box;
+/* Map */
+.map-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
-.control-panel {
-  background: white;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  align-items: center;
-  border-bottom: 1px solid #e2e8f0;
-  /* Position relative to allow for toolbar space */
-  position: relative;
-  z-index: 500;
-  /* Temporarily remove margin to test */
-  /* margin-top: 50px; */
+.map-container {
+  width: 100%;
+  height: 100%;
 }
 
-.search-container {
-  position: relative;
-  flex: 1;
-  min-width: 300px;
-  /* Keep search container z-index lower than toolbar */
-  z-index: 600;
+/* Hide all Gaode controls */
+.map-container .amap-toolbar,
+.map-container .amap-controls,
+.map-container .amap-scale-control,
+.map-container .amap-logo {
+  display: none !important;
+}
+
+/* Floating Search Bar */
+.floating-search {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 50%;
+  z-index: 1000;
+
 }
 
 .search-input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 600;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  font-size: 16px;
+  outline: none;
 }
 
 .search-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 6px 25px rgba(0,0,0,0.2);
 }
 
 .suggestions-dropdown {
@@ -60,25 +55,21 @@
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
   max-height: 300px;
   overflow-y: auto;
-  /* Increased z-index to appear above Gaode Maps toolbar */
-  z-index: 9999;
-  /* Add margin top to create space */
-  margin-top: 2px;
+  margin-top: 8px;
+  z-index: 1001;
 }
 
 .suggestion-item {
-  padding: 0.75rem 1rem;
+  padding: 16px;
   cursor: pointer;
-  border-bottom: 1px solid #f7fafc;
-  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
 .suggestion-item:hover,
@@ -86,13 +77,13 @@
   background-color: #f8f9ff;
 }
 
-.suggestion-item:last-child {
-  border-bottom: none;
+.suggestion-item:first-child {
+  border-radius: 12px 12px 0 0;
 }
 
-.suggestion-icon {
-  font-size: 1rem;
-  color: #667eea;
+.suggestion-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 12px 12px;
 }
 
 .suggestion-text {
@@ -101,77 +92,64 @@
 
 .suggestion-name {
   font-weight: 500;
-  color: #2d3748;
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .suggestion-address {
-  font-size: 0.8rem;
-  color: #718096;
-  margin-top: 0.25rem;
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
 }
 
-.button-group {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 0.75rem 1rem;
+.create-spot-btn {
+  background: none;
   border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
+  font-size: 16px;
+  padding: 8px;
+  border-radius: 8px;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.create-spot-btn:hover {
+  background: rgba(255, 105, 180, 0.1);
+}
+
+/* Floating Controls */
+.floating-controls {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.control-btn {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  transform: translateY(-2px);
+}
+
+.control-btn.primary {
+  background: #667eea;
   color: white;
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.btn-secondary {
-  background: #f7fafc;
-  color: #4a5568;
-  border: 1px solid #e2e8f0;
-}
-
-.btn-secondary:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-  transform: translateY(-1px);
-}
-
-.map-wrapper {
-  flex: 1;
-  position: relative;
-  background: #f0f8ff;
-  /* Ensure map wrapper has lower z-index than control panel */
-  z-index: 1;
-}
-
-.map-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  z-index: 1;
-}
-
-/* Ensure Gaode Maps toolbar appears above control panel */
-.map-container .amap-toolbar {
-  z-index: 1000 !important;
-  /* Ensure toolbar is positioned at the top */
-  top: 10px !important;
-}
-
+/* Loading */
 .loading-overlay {
   position: absolute;
   top: 0;
@@ -188,18 +166,18 @@
 .loading-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
   background: white;
-  padding: 2rem;
+  padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #667eea;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #667eea;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -209,99 +187,82 @@
   100% { transform: rotate(360deg); }
 }
 
+/* Error */
 .error-message {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: #fed7d7;
+  top: 20px;
+  right: 20px;
+  background: white;
   color: #c53030;
-  padding: 1rem;
-  border-radius: 8px;
+  padding: 16px;
+  border-radius: 12px;
   border-left: 4px solid #c53030;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   z-index: 1000;
   max-width: 300px;
 }
 
+/* Info Panel */
 .info-panel {
   position: absolute;
-  bottom: 1rem;
-  left: 1rem;
+  bottom: 110px;
+  left: 20px;
   background: white;
-  padding: 1rem;
+  padding: 20px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  max-width: 320px;
+  max-width: 300px;
   z-index: 1000;
 }
 
 .info-title {
   font-weight: 600;
-  color: #2d3748;
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
+  margin-bottom: 12px;
+  font-size: 16px;
 }
 
 .info-details {
-  font-size: 0.875rem;
-  color: #718096;
+  font-size: 14px;
+  color: #666;
 }
 
 .info-details > div {
-  margin-bottom: 0.25rem;
+  margin-bottom: 6px;
 }
 
-.info-details > div:last-child {
-  margin-bottom: 0;
-}
-
-/* Mobile responsiveness */
+/* Mobile */
 @media (max-width: 768px) {
-  .control-panel {
-    padding: 1rem;
-    flex-direction: column;
-    align-items: stretch;
-    /* Reduce margin on mobile for better space utilization */
-    margin-top: 40px;
+  .floating-search {
+    top: 16px;
+    left: 16px;
+    right: 16px;
   }
-
-  .search-container {
-    min-width: auto;
-    width: 100%;
+  
+  .search-input {
+    padding: 14px;
   }
-
-  .button-group {
-    justify-content: center;
+  
+  .floating-controls {
+    bottom: 20px;
+    gap: 10px;
   }
-
-  .btn {
-    flex: 1;
-    min-width: 0;
-    font-size: 0.8rem;
-    padding: 0.5rem 0.75rem;
+  
+  .control-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 18px;
   }
-
+  
   .info-panel {
-    left: 0.5rem;
-    right: 0.5rem;
-    bottom: 0.5rem;
+    left: 16px;
+    right: 16px;
+    bottom: 90px;
     max-width: none;
   }
-
-  .header h1 {
-    font-size: 1.2rem;
+  
+  .error-message {
+    top: 16px;
+    right: 16px;
+    left: 16px;
   }
-
-  /* Ensure suggestions dropdown works well on mobile */
-  .suggestions-dropdown {
-    max-height: 250px;
-  }
-}
-
-.amap-marker {
-  z-index: 1000 !important;
-  pointer-events: auto !important;
-}
-
-.amap-info-window {
-  z-index: 1001 !important;
 }

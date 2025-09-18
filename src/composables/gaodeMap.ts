@@ -1,5 +1,6 @@
 // services/gaodeMapService.ts
 import { AMapInstance } from "../types/gaode";
+import axios from "axios";
 
 // Global state for Gaode Maps
 let isAPILoaded = false;
@@ -9,6 +10,9 @@ let apiLoadPromise: Promise<AMapInstance> | null = null;
 // Configuration
 const GAODE_API_KEY = import.meta.env.VITE_GAODE_API_KEY;
 const GAODE_SECURITY_CODE = import.meta.env.VITE_GAODE_SECURITY_KEY;
+const VITE_GAODE_WEB_SERVICE_API_KEY = import.meta.env.VITE_GAODE_WEB_SERVICE_API_KEY;
+
+export let geocoder;
 
 /**
  * Load Gaode Maps API only once globally
@@ -33,22 +37,22 @@ export const loadGaodeAPI = (): Promise<AMapInstance> => {
     };
 
     const script = document.createElement("script");
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_API_KEY}&plugin=AMap.AutoComplete,AMap.PlaceSearch,AMap.ToolBar,AMap.Scale,AMap.Geolocation`;
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_API_KEY}&plugin=AMap.AutoComplete,AMap.PlaceSearch,AMap.ToolBar,AMap.Scale,AMap.Geolocation,AMap.Geocoder`;
     script.async = true;
-    
+
     script.onload = () => {
       isAPILoaded = true;
       isAPILoading = false;
       console.log("✅ Gaode Maps API loaded globally");
       resolve(window.AMap as AMapInstance);
     };
-    
+
     script.onerror = () => {
       isAPILoading = false;
       apiLoadPromise = null;
       reject(new Error("Failed to load Gaode Maps API"));
     };
-    
+
     document.head.appendChild(script);
   });
 
@@ -93,8 +97,8 @@ export const createMapPlugins = (map: any, AMap: AMapInstance) => {
     renderStyle: {
       marker: {
         clickable: true,
-      }
-    }
+      },
+    },
   });
 
   // Initialize Geolocation
@@ -103,11 +107,26 @@ export const createMapPlugins = (map: any, AMap: AMapInstance) => {
     timeout: 10000,
   });
 
+  geocoder = new AMap.Geocoder({
+    city: "全国", // or specific city code like "010"
+  });
+
   return {
     toolbar,
     scale,
     autoComplete,
     placeSearch,
-    geolocation
+    geolocation,
+    geocoder,
   };
 };
+
+export async function getRegeoCode(lat, lng) {
+  const url = `https://restapi.amap.com/v3/geocode/regeo?location=${lng},${lat}&key=${VITE_GAODE_WEB_SERVICE_API_KEY}`;
+  const config = {
+    method: "get",
+    url,
+  };
+  const {data}= await axios.request(config);
+  return data.regeocode.formatted_address as string
+}

@@ -20,6 +20,7 @@ interface AMapInstance {
   ToolBar: new (options: any) => any
   Scale: new (options: any) => any
   Geolocation: new (options: any) => any
+  Geocoder: new (options: any) => any
   plugin: (plugins: string | string[], callback: () => void) => void
 }
 
