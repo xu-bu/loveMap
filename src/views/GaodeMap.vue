@@ -111,7 +111,8 @@ let searchMarkers: any[] = [];
 let loveSpotMarkers: any[] = [];
 
 let searchTimeout: NodeJS.Timeout | null = null;
-let pressTimer: number | null = null;
+let pressTimer: any = null;
+let touchCoordinates: any = null;
 
 // Loading state management
 const getLoadingMessage = () => {
@@ -141,11 +142,6 @@ const initMap = async () => {
 
     // Initialize plugins (reusable function)
     plugins = createMapPlugins(map, AMap);
-
-    // Set up event listeners
-    setupEventListeners();
-
-    console.log("✅ Map initialized quickly");
     loading.value = false;
   } catch (err) {
     console.error("❌ Failed to initialize map:", err);
@@ -208,7 +204,7 @@ const displayLoveSpots = () => {
 
 // Setup event listeners
 const setupEventListeners = () => {
-  const { autoComplete, placeSearch, geocoder } = plugins;
+  const { autoComplete, placeSearch } = plugins;
 
   // AutoComplete events
   autoComplete.on("select", (e: any) => {
@@ -227,57 +223,28 @@ const setupEventListeners = () => {
   });
 
   // Long press handlers for creating love spots
-  if (IS_APP) {
-    // Touch events for mobile
-    map.on("touchstart", (e: any) => {
+  map.on("touchstart", (e: any) => {
+    // Check if it's single finger touch via originEvent
+    if (e.originEvent && e.originEvent.touches.length === 1) {
       pressTimer = window.setTimeout(() => {
         const { lng, lat } = e.lnglat;
-        router.push({ path: "/createLoveSpot", query: { lat, lng } });
+        router.push({ path: "/createLoveSpot", query: { lat, lng, origin: "gaode" } });
       }, 800);
-    });
+    }
+  });
 
-    map.on("touchend", () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-      }
-    });
+  map.on("touchend", () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
 
-    map.on("touchmove", () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-      }
-    });
-  } else {
-    map.on("mousedown", (e: any) => {
-      pressTimer = window.setTimeout(() => {
-        const { lng, lat } = e.lnglat;
-        geocoder.getAddress([lng, lat], (status, result) => {
-          const address = status === "complete" && result.info === "OK"
-            ? result.regeocode.formattedAddress
-            : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          log(address)
-        })
-        router.push({ path: "/createLoveSpot", query: { lat, lng, origin: "gaode" }, state: { geocoder } });
-      }, 800);
-    });
-
-    map.on("mouseup", () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-      }
-    });
-
-    map.on("mouseout", () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-      }
-    });
-  }
-};
+  map.on("touchmove", () => {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  })
+}
 
 // Handle search input with debouncing
 const onSearchInput = () => {
@@ -613,19 +580,19 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 // Lifecycle hooks
 onMounted(() => {
-  nextTick(async () => {
-    if (!map) await initMap();
-    // Always refresh love spots
-    await refreshLoveSpots();
-  });
+  if (!map) {
+    nextTick(async () => {
+      await initMap();
+      setupEventListeners();
+      await refreshLoveSpots();
+    });
+  }
 });
 
 // For keep-alive components - refresh love spots when activated
 onActivated(async () => {
   if (map) {
     console.log("onActivated")
-    console.log("📱 Component activated - refreshing love spots");
-    await refreshLoveSpots();
   }
 });
 
