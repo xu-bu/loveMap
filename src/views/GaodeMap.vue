@@ -76,7 +76,7 @@ import type { LocationData } from "../types/db";
 import "../assets/styles/gaodeMap.css";
 import { useRouter } from "vue-router";
 import { useMap } from "../composables/mapView";
-import { GAODE_SEARCH_NEARBY_RADIUS, MAP_ZOOM_LEVEL, IS_APP } from '../consts'
+import { GAODE_SEARCH_NEARBY_RADIUS, MAP_ZOOM_LEVEL } from '../consts'
 import { log } from "@/utils/logger";
 import { loadGaodeAPI, isGaodeAPIReady, createMapPlugins } from "../composables/gaodeMap";
 
@@ -90,7 +90,8 @@ const {
   loadLoveSpots,
   handleLoveSpotClick,
   truncateText,
-  formatDate
+  formatDate,
+  setShouldRefresh
 } = useMap(location);
 
 // Reactive data
@@ -112,7 +113,6 @@ let loveSpotMarkers: any[] = [];
 
 let searchTimeout: NodeJS.Timeout | null = null;
 let pressTimer: any = null;
-let touchCoordinates: any = null;
 
 // Loading state management
 const getLoadingMessage = () => {
@@ -122,31 +122,77 @@ const getLoadingMessage = () => {
   return 'Loading Love Spots...';
 };
 
-// Fast initialization for returning users
-const initMap = async () => {
+// Initialize map only once
+const oneTimeInitMap = async () => {
   try {
     loading.value = true;
-
+    setShouldRefresh(true)
     // Get AMap instance (either cached or freshly loaded)
     const AMap = await loadGaodeAPI();
 
-    // Create map instance (always needed per component)
+    // Create map instance and attach to DOM
     map = new AMap.Map("gaode-map", {
       zoom: MAP_ZOOM_LEVEL,
-      center: [116.397428, 39.90923], // Beijing, if no center set, will auto locate
+      center: [116.397428, 39.90923],
       mapStyle: "amap://styles/normal",
       viewMode: "3D",
       clickableIcons: true,
       keyboardShortcuts: true,
     });
 
-    // Initialize plugins (reusable function)
+    // Initialize plugins
     plugins = createMapPlugins(map, AMap);
+
+    // Store globally
+    window.__GLOBAL_MAP_INSTANCE__ = map;
+    window.__GLOBAL_MAP_PLUGINS__ = plugins;
+
     loading.value = false;
+    log("✅ New map created and stored globally");
   } catch (err) {
     console.error("❌ Failed to initialize map:", err);
     error.value = "Failed to load Gaode Maps. Please check your API key.";
     loading.value = false;
+  }
+};
+
+// Reattach existing map to DOM
+const reattachMap = async () => {
+  try {
+    loading.value = true;
+
+    // Get the previous map's center and zoom to preserve state
+    const prevMap = window.__GLOBAL_MAP_INSTANCE__;
+    const center = prevMap.getCenter();
+    const zoom = prevMap.getZoom();
+
+    // Destroy old map
+    prevMap.destroy();
+
+    // Create new map with same state
+    const AMap = await loadGaodeAPI();
+    map = new AMap.Map("gaode-map", {
+      zoom: zoom,
+      center: [center.lng, center.lat],
+      mapStyle: "amap://styles/normal",
+      viewMode: "3D",
+      clickableIcons: true,
+      keyboardShortcuts: true,
+    });
+
+    // Reuse existing plugins or create new ones
+    plugins = createMapPlugins(map, AMap);
+
+    // Update global storage
+    window.__GLOBAL_MAP_INSTANCE__ = map;
+    window.__GLOBAL_MAP_PLUGINS__ = plugins;
+
+    loading.value = false;
+    log("✅ Recreated map with preserved state");
+  } catch (err) {
+    console.error("❌ Failed to recreate map:", err);
+    // Fallback to normal init
+    await oneTimeInitMap();
   }
 };
 
@@ -580,24 +626,43 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 // Lifecycle hooks
 onMounted(() => {
-  if (!map) {
-    nextTick(async () => {
-      await initMap();
-      setupEventListeners();
+  nextTick(async () => {
+    // Check if global map exists and is valid
+    if (window.__GLOBAL_MAP_INSTANCE__ && !window.__GLOBAL_MAP_INSTANCE__.isDestroyed) {
+      // Reattach existing map to new DOM
+      await reattachMap();
+      log("✅ Reusing existing map");
+    } else {
+      // Create new map
+      await oneTimeInitMap();
+      log("✅ Created new map");
+    }
+
+    setupEventListeners();
+    // Check if we should reload love spots
+    const shouldReload = router.currentRoute.value.query.loadLoveSpot === 'true';
+
+    if (shouldReload) {
       await refreshLoveSpots();
-    });
-  }
+      setShouldRefresh(false)
+      log("✅ Reloaded love spots from server");
+    } else {
+      // Just display existing cached love spots without loading
+      displayLoveSpots();
+    }
+  });
 });
 
 // For keep-alive components - refresh love spots when activated
 onActivated(async () => {
   if (map) {
-    console.log("onActivated")
+    await refreshLoveSpots();
+    log("📱 Component activated - love spots refreshed");
   }
 });
 
 onUnmounted(() => {
-  // Cleanup
+  // Only cleanup timers and markers, keep map instance
   if (searchTimeout) {
     clearTimeout(searchTimeout);
   }
@@ -607,14 +672,18 @@ onUnmounted(() => {
     pressTimer = null;
   }
 
-  // Destroy map instance
-  if (map) {
-    map.destroy();
-    map = null;
+  // Clear markers but keep map
+  loveSpotMarkers.forEach((marker) => map?.remove(marker));
+  searchMarkers.forEach((marker) => map?.remove(marker));
+  if (currentLocationMarker) {
+    map?.remove(currentLocationMarker);
   }
 
-  // Clean up global function
-  delete (window as any).createLoveSpotFromMarker;
+  // Don't destroy map, just reset references
+  map = null;
+  plugins = {};
+
+  log("🧹 Cleaned up component without destroying map");
 });
 
 // Expose methods for parent components

@@ -1,7 +1,8 @@
 import { ref, onMounted, type Ref } from "vue";
 import { useRouter } from "vue-router";
-import {LocationData} from "../types/db"
-import {HistoryState} from "../types/common"
+import { LocationData } from "../types/db";
+import { HistoryState } from "../types/common";
+
 
 export function useLoveSpot() {
   const router = useRouter();
@@ -9,7 +10,6 @@ export function useLoveSpot() {
   const loading = ref(false);
   const error = ref("");
   const currentPhotoIndex = ref(0);
-
   const goBack = () => {
     router.back();
   };
@@ -69,7 +69,7 @@ export function useLoveSpot() {
       loading.value = false;
       console.error("No love spot data found");
       // Optionally redirect back
-      // router.push('/') 
+      // router.push('/')
     }
   };
 
@@ -84,7 +84,7 @@ export function useLoveSpot() {
     loading,
     error,
     currentPhotoIndex,
-    
+
     // Methods
     goBack,
     goToMap,

@@ -10,7 +10,7 @@ import TestView from '../views/TestView.vue'
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect:'/gaodeMap'
+    redirect:'/gaodeMap?loadLoveSpot=true'
     // name: 'IndexView',
     // component: IndexView
   },

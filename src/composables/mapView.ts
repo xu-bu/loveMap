@@ -6,6 +6,7 @@ import type { LocationData } from "../types/db";
 import { locateUserByIP } from "../utils/locateUserByIP";
 
 const supabaseClient = getSupabaseClient();
+const needsRefresh = ref(true); // Start as true for initial load
 
 export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
   const VITE_GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -48,7 +49,14 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     );
   };
 
+  // Set refresh needed (call this when love spots data changes)
+  const setShouldRefresh = (value: boolean) => {
+    needsRefresh.value = value;
+    console.log("🔄 Refresh state set to:", value);
+  };
+
   const loadLoveSpots = async () => {
+    if(!needsRefresh.value) return
     loadingSpots.value = true;
     try {
       const { data, error: fetchError } = await supabaseClient
@@ -122,5 +130,6 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     handleLoveSpotClick,
     truncateText,
     formatDate,
+    setShouldRefresh,
   };
 }
