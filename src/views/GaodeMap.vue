@@ -91,7 +91,6 @@ const {
   handleLoveSpotClick,
   truncateText,
   formatDate,
-  setShouldRefresh
 } = useMap(location);
 
 // Reactive data
@@ -109,7 +108,7 @@ let map: any = null;
 let plugins: any = {};
 let currentLocationMarker: any = null;
 let searchMarkers: any[] = [];
-let loveSpotMarkers: any[] = [];
+const loveSpotMarkers: any[] = [];
 
 let searchTimeout: NodeJS.Timeout | null = null;
 let pressTimer: any = null;
@@ -126,7 +125,6 @@ const getLoadingMessage = () => {
 const oneTimeInitMap = async () => {
   try {
     loading.value = true;
-    setShouldRefresh(true)
     // Get AMap instance (either cached or freshly loaded)
     const AMap = await loadGaodeAPI();
 
@@ -139,16 +137,17 @@ const oneTimeInitMap = async () => {
       clickableIcons: true,
       keyboardShortcuts: true,
     });
-
-    // Initialize plugins
+    log(map.getCenter());
+    log(map.getZoom());
     plugins = createMapPlugins(map, AMap);
-
+    setupEventListeners();
     // Store globally
     window.__GLOBAL_MAP_INSTANCE__ = map;
     window.__GLOBAL_MAP_PLUGINS__ = plugins;
 
+    await loadLoveSpots();
+    displayLoveSpots();
     loading.value = false;
-    log("✅ New map created and stored globally");
   } catch (err) {
     console.error("❌ Failed to initialize map:", err);
     error.value = "Failed to load Gaode Maps. Please check your API key.";
@@ -160,33 +159,10 @@ const oneTimeInitMap = async () => {
 const reattachMap = async () => {
   try {
     loading.value = true;
-
     // Get the previous map's center and zoom to preserve state
-    const prevMap = window.__GLOBAL_MAP_INSTANCE__;
-    const center = prevMap.getCenter();
-    const zoom = prevMap.getZoom();
-
-    // Destroy old map
-    prevMap.destroy();
-
-    // Create new map with same state
-    const AMap = await loadGaodeAPI();
-    map = new AMap.Map("gaode-map", {
-      zoom: zoom,
-      center: [center.lng, center.lat],
-      mapStyle: "amap://styles/normal",
-      viewMode: "3D",
-      clickableIcons: true,
-      keyboardShortcuts: true,
-    });
-
+    map = window.__GLOBAL_MAP_INSTANCE__;
     // Reuse existing plugins or create new ones
-    plugins = createMapPlugins(map, AMap);
-
-    // Update global storage
-    window.__GLOBAL_MAP_INSTANCE__ = map;
-    window.__GLOBAL_MAP_PLUGINS__ = plugins;
-
+    plugins = createMapPlugins(map, map);
     loading.value = false;
     log("✅ Recreated map with preserved state");
   } catch (err) {
@@ -196,55 +172,13 @@ const reattachMap = async () => {
   }
 };
 
-// Load and display love spots (should happen every time)
-const refreshLoveSpots = async () => {
-  try {
-    await loadLoveSpots();
-    displayLoveSpots();
-    console.log("✅ Love spots refreshed");
-  } catch (err) {
-    console.error("❌ Failed to load love spots:", err);
-    error.value = "Failed to load love spots";
-  }
-};
-
 // Display love spots on the map
 const displayLoveSpots = () => {
   if (!map) return;
-
+  loveSpots.value = JSON.parse(localStorage.getItem('loveSpots')!)
   // Clear existing love spot markers
-  loveSpotMarkers.forEach((marker) => map.remove(marker));
-  loveSpotMarkers = [];
-
   loveSpots.value.forEach((loveSpot: LocationData) => {
-    const marker = new window.AMap.Marker({
-      position: [loveSpot.coordinates.lng, loveSpot.coordinates.lat],
-      content: `<div style="background: #ff69b4; color: white; padding: 8px; border-radius: 50%; font-size: 20px; border: 2px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">❤️</div>`,
-      anchor: "center",
-    });
-
-    const infoWindow = new window.AMap.InfoWindow({
-      content: `
-        <div style="padding: 12px; max-width: 250px;">
-          <h3 style="margin: 0 0 8px 0; color: #ff69b4;">${loveSpot.address}</h3>
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">${truncateText(loveSpot.content || '', 100)}</p>
-          <div style="color: #999; font-size: 12px; margin-bottom: 8px;">
-            📍 ${loveSpot.address || 'Unknown location'}<br>
-            📅 ${formatDate(loveSpot.created_at)}
-          </div>
-        </div>
-      `,
-      anchor: "bottom-center",
-      offset: [0, -35],
-    });
-
-    marker.on("click", () => {
-      infoWindow.open(map, [loveSpot.coordinates.lng, loveSpot.coordinates.lat]);
-      handleLoveSpotClick(loveSpot);
-    });
-
-    map.add(marker);
-    loveSpotMarkers.push(marker);
+    addMarker([loveSpot.coordinates.lng, loveSpot.coordinates.lat], "❤️", 'love spot', loveSpotMarkers, loveSpot.address, () => handleLoveSpotClick(loveSpot));
   });
 };
 
@@ -370,7 +304,7 @@ const selectSuggestion = (suggestion: GaodePOI) => {
     const { lng, lat } = suggestion.location;
     map.setCenter([lng, lat]);
     map.setZoom(16);
-    addMarker([lng, lat], "🔍", suggestion.name, suggestion.address);
+    addMarker([lng, lat], "🔍", suggestion.name, searchMarkers, suggestion.address || "");
   }
 };
 
@@ -389,7 +323,7 @@ const selectSuggestionFromAutocomplete = (poi: any) => {
   const { lng, lat } = poi.location;
   map.setCenter([lng, lat]);
   map.setZoom(16);
-  addMarker([lng, lat], "🔍", poi.name, poi.address);
+  addMarker([lng, lat], "🔍", poi.name, searchMarkers, poi.address);
 };
 
 // Show place details
@@ -408,12 +342,10 @@ const addMarker = (
   position: [number, number],
   content: string,
   title: string,
-  address?: string
+  markerList: any[],
+  address: string,
+  clickCallback?
 ) => {
-  // Clear existing search markers
-  searchMarkers.forEach((marker) => map.remove(marker));
-  searchMarkers = [];
-
   const marker = new window.AMap!.Marker({
     position: position,
     content: `<div style="background: white; padding: 8px; border-radius: 50%; font-size: 20px; border: 2px solid #667eea; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">${content}</div>`,
@@ -440,11 +372,12 @@ const addMarker = (
   });
 
   marker.on("click", () => {
-    infoWindow.open(map, position);
+    if (clickCallback) clickCallback()
+    else infoWindow.open(map, position);
   });
 
   map.add(marker);
-  searchMarkers.push(marker);
+  markerList.push(marker);
 };
 
 // Global function for info window button
@@ -632,23 +565,11 @@ onMounted(() => {
       // Reattach existing map to new DOM
       await reattachMap();
       log("✅ Reusing existing map");
+      displayLoveSpots();
     } else {
       // Create new map
       await oneTimeInitMap();
       log("✅ Created new map");
-    }
-
-    setupEventListeners();
-    // Check if we should reload love spots
-    const shouldReload = router.currentRoute.value.query.loadLoveSpot === 'true';
-
-    if (shouldReload) {
-      await refreshLoveSpots();
-      setShouldRefresh(false)
-      log("✅ Reloaded love spots from server");
-    } else {
-      // Just display existing cached love spots without loading
-      displayLoveSpots();
     }
   });
 });
@@ -656,7 +577,6 @@ onMounted(() => {
 // For keep-alive components - refresh love spots when activated
 onActivated(async () => {
   if (map) {
-    await refreshLoveSpots();
     log("📱 Component activated - love spots refreshed");
   }
 });
@@ -694,6 +614,5 @@ defineExpose({
   loveSpots,
   displayLoveSpots,
   clearSearch,
-  refreshLoveSpots,
 });
 </script>

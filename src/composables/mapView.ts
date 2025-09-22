@@ -48,27 +48,19 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
       }
     );
   };
-
-  // Set refresh needed (call this when love spots data changes)
-  const setShouldRefresh = (value: boolean) => {
-    needsRefresh.value = value;
-    console.log("🔄 Refresh state set to:", value);
-  };
-
   const loadLoveSpots = async () => {
-    if(!needsRefresh.value) return
+    if (!needsRefresh.value) return;
     loadingSpots.value = true;
     try {
-      const { data, error: fetchError } = await supabaseClient
+      const { data, error: fetchError } = (await supabaseClient
         .from("loveMap")
-        .select("*");
+        .select("*")) as { data: LocationData[] | null; error: any };
 
       if (fetchError) {
         console.error("Error fetching love spots:", fetchError);
         error.value = fetchError.message;
       } else {
-        loveSpots.value = data || [];
-        log("Loaded love spots:");
+        localStorage.setItem("loveSpots", JSON.stringify(data));
       }
     } catch (err) {
       console.error("Error loading love spots:", err);
@@ -130,6 +122,5 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     handleLoveSpotClick,
     truncateText,
     formatDate,
-    setShouldRefresh,
   };
 }
