@@ -20,9 +20,15 @@
 
       <!-- Floating Search Bar -->
       <div class="floating-search">
-        <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索地点 (Search for places...)"
-          class="search-input" @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur"
-          @keydown="handleKeyDown" />
+        <div class="search-wrapper">
+          <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索地点 (Search for places...)"
+            class="search-input" @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur"
+            @keydown="handleKeyDown" />
+          <!-- Search Loading Icon -->
+          <div v-if="searchLoading" class="search-loading-icon">
+            <div class="search-spinner"></div>
+          </div>
+        </div>
 
         <!-- Search Suggestions Dropdown -->
         <div v-if="showSuggestions && suggestions.length > 0" class="suggestions-dropdown">
@@ -70,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, onActivated } from "vue";
+import { ref, onMounted, onUnmounted, nextTick, onActivated, onDeactivated } from "vue";
 import { GaodePOI, SelectedPlace } from "../types/gaode";
 import type { LocationData } from "../types/db";
 import "../assets/styles/gaodeMap.css";
@@ -89,8 +95,6 @@ const {
   loadingSpots,
   loadLoveSpots,
   handleLoveSpotClick,
-  truncateText,
-  formatDate,
 } = useMap(location);
 
 // Reactive data
@@ -102,13 +106,25 @@ const showSuggestions = ref(false);
 const selectedIndex = ref(-1);
 const selectedPlace = ref<SelectedPlace | null>(null);
 const searchInput = ref<HTMLInputElement>();
+const searchLoading = ref(false);
 
 // Map and plugin instances
 let map: any = null;
 let plugins: any = {};
 let currentLocationMarker: any = null;
-let searchMarkers: any[] = [];
+const searchMarkers: any[] = [];
 const loveSpotMarkers: any[] = [];
+
+// Keep-alive state management
+const mapState = ref({
+  center: null as [number, number] | null,
+  zoom: MAP_ZOOM_LEVEL,
+  searchQuery: "",
+  selectedPlace: null as SelectedPlace | null,
+  currentLocationMarker: null as any,
+  searchMarkers: [] as any[],
+  loveSpotMarkers: [] as any[]
+});
 
 let searchTimeout: NodeJS.Timeout | null = null;
 let pressTimer: any = null;
@@ -119,6 +135,58 @@ const getLoadingMessage = () => {
     return isGaodeAPIReady() ? 'Initializing map...' : 'Loading Gaode Maps API...';
   }
   return 'Loading Love Spots...';
+};
+
+// Save map state for keep-alive
+const saveMapState = () => {
+  if (map && !map.isDestroyed) {
+    const center = map.getCenter();
+    mapState.value = {
+      center: [center.lng, center.lat],
+      zoom: map.getZoom(),
+      searchQuery: searchQuery.value,
+      selectedPlace: selectedPlace.value,
+      currentLocationMarker: currentLocationMarker,
+      searchMarkers: [...searchMarkers],
+      loveSpotMarkers: [...loveSpotMarkers]
+    };
+
+    log("💾 Map state saved:")
+    log({
+      center: mapState.value.center,
+      zoom: mapState.value.zoom,
+      searchQuery: mapState.value.searchQuery,
+      markersCount: {
+        search: mapState.value.searchMarkers.length,
+        loveSpots: mapState.value.loveSpotMarkers.length,
+        currentLocation: !!mapState.value.currentLocationMarker
+      }
+    });
+  }
+};
+
+// Restore map state for keep-alive
+const restoreMapState = () => {
+  if (map && mapState.value.center) {
+    // Restore map view
+    map.setCenter(mapState.value.center);
+    map.setZoom(mapState.value.zoom);
+
+    // Restore UI state
+    searchQuery.value = mapState.value.searchQuery;
+    selectedPlace.value = mapState.value.selectedPlace;
+
+    // Restore markers (they should already be on the map, just update references)
+    currentLocationMarker = mapState.value.currentLocationMarker;
+    searchMarkers.splice(0, searchMarkers.length, ...mapState.value.searchMarkers);
+    loveSpotMarkers.splice(0, loveSpotMarkers.length, ...mapState.value.loveSpotMarkers);
+
+    log("🔄 Map state restored:", {
+      center: mapState.value.center,
+      zoom: mapState.value.zoom,
+      searchQuery: mapState.value.searchQuery
+    });
+  }
 };
 
 // Initialize map only once
@@ -137,11 +205,14 @@ const oneTimeInitMap = async () => {
       clickableIcons: true,
       keyboardShortcuts: true,
     });
-    log(map.getCenter());
-    log(map.getZoom());
+
+    log("🗺️ Map center:", map.getCenter());
+    log("🔍 Map zoom:", map.getZoom());
+
     plugins = createMapPlugins(map, AMap);
     setupEventListeners();
-    // Store globally
+
+    // Store globally for keep-alive
     window.__GLOBAL_MAP_INSTANCE__ = map;
     window.__GLOBAL_MAP_PLUGINS__ = plugins;
 
@@ -155,18 +226,29 @@ const oneTimeInitMap = async () => {
   }
 };
 
-// Reattach existing map to DOM
+// Reattach existing map to DOM and restore state
 const reattachMap = async () => {
   try {
     loading.value = true;
-    // Get the previous map's center and zoom to preserve state
+
+    // Get the preserved map instance
     map = window.__GLOBAL_MAP_INSTANCE__;
-    // Reuse existing plugins or create new ones
-    plugins = createMapPlugins(map, map);
+    plugins = window.__GLOBAL_MAP_PLUGINS__ || createMapPlugins(map, window.AMap);
+
+    // Re-setup event listeners (they might be lost)
+    setupEventListeners();
+
+    // Restore the previous state
+    restoreMapState();
+
+    // Refresh love spots in case they changed
+    await loadLoveSpots();
+    displayLoveSpots();
+
     loading.value = false;
-    log("✅ Recreated map with preserved state");
+    log("✅ Map reattached with preserved state");
   } catch (err) {
-    console.error("❌ Failed to recreate map:", err);
+    console.error("❌ Failed to reattach map:", err);
     // Fallback to normal init
     await oneTimeInitMap();
   }
@@ -175,16 +257,46 @@ const reattachMap = async () => {
 // Display love spots on the map
 const displayLoveSpots = () => {
   if (!map) return;
-  loveSpots.value = JSON.parse(localStorage.getItem('loveSpots')!)
+
   // Clear existing love spot markers
+  loveSpotMarkers.forEach(marker => {
+    if (marker && !marker.isDestroyed) {
+      map.remove(marker);
+    }
+  });
+  loveSpotMarkers.length = 0;
+
+  // Load fresh love spots data
+  loveSpots.value = JSON.parse(localStorage.getItem('loveSpots') || '[]');
+
+  // Add markers for each love spot
   loveSpots.value.forEach((loveSpot: LocationData) => {
-    addMarker([loveSpot.coordinates.lng, loveSpot.coordinates.lat], "❤️", 'love spot', loveSpotMarkers, loveSpot.address, () => handleLoveSpotClick(loveSpot));
+    addMarker(
+      [loveSpot.coordinates.lng, loveSpot.coordinates.lat],
+      "❤️",
+      'love spot',
+      loveSpotMarkers,
+      loveSpot.address,
+      () => handleLoveSpotClick(loveSpot)
+    );
   });
 };
 
 // Setup event listeners
 const setupEventListeners = () => {
+  if (!plugins.autoComplete || !plugins.placeSearch) {
+    log("⚠️ Plugins not ready for event listeners");
+    return;
+  }
+
   const { autoComplete, placeSearch } = plugins;
+
+  // Clear existing listeners to avoid duplicates
+  autoComplete.off("select");
+  placeSearch.off("selectChanged");
+  map.off("touchstart");
+  map.off("touchend");
+  map.off("touchmove");
 
   // AutoComplete events
   autoComplete.on("select", (e: any) => {
@@ -221,10 +333,12 @@ const setupEventListeners = () => {
   });
 
   map.on("touchmove", () => {
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  })
-}
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  });
+};
 
 // Handle search input with debouncing
 const onSearchInput = () => {
@@ -237,9 +351,11 @@ const onSearchInput = () => {
   if (!searchQuery.value.trim()) {
     suggestions.value = [];
     showSuggestions.value = false;
+    searchLoading.value = false;
     return;
   }
 
+  searchLoading.value = true;
   searchTimeout = setTimeout(() => {
     performAutoComplete();
   }, 300);
@@ -248,9 +364,14 @@ const onSearchInput = () => {
 // Perform autocomplete search
 const performAutoComplete = () => {
   const { autoComplete } = plugins;
-  if (!autoComplete || !searchQuery.value.trim()) return;
+  if (!autoComplete || !searchQuery.value.trim()) {
+    searchLoading.value = false;
+    return;
+  }
 
   autoComplete.search(searchQuery.value, (status: string, result: any) => {
+    searchLoading.value = false;
+
     if (status === "complete" && result.tips) {
       const tips = result.tips
         .filter((tip: any) => tip.location)
@@ -276,7 +397,7 @@ const performAutoComplete = () => {
 
 // Create love spot from suggestion
 const createLoveSpotFromSuggestion = (suggestion: GaodePOI) => {
-  log(suggestion)
+  log(suggestion);
   const { lng, lat } = suggestion.location;
   router.push({
     path: "/createLoveSpot",
@@ -372,7 +493,7 @@ const addMarker = (
   });
 
   marker.on("click", () => {
-    if (clickCallback) clickCallback()
+    if (clickCallback) clickCallback();
     else infoWindow.open(map, position);
   });
 
@@ -446,7 +567,7 @@ const searchNearby = () => {
       if (status === "complete" && result.poiList && result.poiList.pois) {
         // Clear existing markers
         searchMarkers.forEach((marker) => map.remove(marker));
-        searchMarkers = [];
+        searchMarkers.length = 0;
 
         // Add markers for nearby POIs
         result.poiList.pois.slice(0, 10).forEach((poi: any, index: number) => {
@@ -503,10 +624,11 @@ const clearSearch = () => {
   showSuggestions.value = false;
   selectedPlace.value = null;
   selectedIndex.value = -1;
+  searchLoading.value = false;
 
   // Clear search markers
   searchMarkers.forEach((marker) => map.remove(marker));
-  searchMarkers = [];
+  searchMarkers.length = 0;
 
   if (searchTimeout) {
     clearTimeout(searchTimeout);
@@ -560,29 +682,31 @@ const handleKeyDown = (event: KeyboardEvent) => {
 // Lifecycle hooks
 onMounted(() => {
   nextTick(async () => {
-    // Check if global map exists and is valid
-    if (window.__GLOBAL_MAP_INSTANCE__ && !window.__GLOBAL_MAP_INSTANCE__.isDestroyed) {
-      // Reattach existing map to new DOM
-      await reattachMap();
-      log("✅ Reusing existing map");
-      displayLoveSpots();
-    } else {
-      // Create new map
-      await oneTimeInitMap();
-      log("✅ Created new map");
-    }
+    await oneTimeInitMap();
   });
 });
 
-// For keep-alive components - refresh love spots when activated
+// Keep-alive: Save state when component is deactivated
+onDeactivated(() => {
+  saveMapState();
+  log("💾 Component deactivated - state saved");
+});
+
+// Keep-alive: Restore state when component is activated
 onActivated(async () => {
-  if (map) {
-    log("📱 Component activated - love spots refreshed");
-  }
+  // if (map && !loading.value) {
+  //   // Refresh love spots in case they changed while away
+  //   await loadLoveSpots();
+  //   displayLoveSpots();
+  //   log("🔄 Component activated - love spots refreshed");
+  // }
 });
 
 onUnmounted(() => {
-  // Only cleanup timers and markers, keep map instance
+  // Save state before cleanup
+  saveMapState();
+
+  // Only cleanup timers and references, keep map instance for keep-alive
   if (searchTimeout) {
     clearTimeout(searchTimeout);
   }
@@ -592,18 +716,15 @@ onUnmounted(() => {
     pressTimer = null;
   }
 
-  // Clear markers but keep map
-  loveSpotMarkers.forEach((marker) => map?.remove(marker));
-  searchMarkers.forEach((marker) => map?.remove(marker));
-  if (currentLocationMarker) {
-    map?.remove(currentLocationMarker);
-  }
-
-  // Don't destroy map, just reset references
+  // Don't remove markers or destroy map for keep-alive
+  // Just reset component references
   map = null;
   plugins = {};
+  currentLocationMarker = null;
+  searchMarkers.length = 0;
+  loveSpotMarkers.length = 0;
 
-  log("🧹 Cleaned up component without destroying map");
+  log("🧹 Component unmounted - map preserved for keep-alive");
 });
 
 // Expose methods for parent components
@@ -614,5 +735,7 @@ defineExpose({
   loveSpots,
   displayLoveSpots,
   clearSearch,
+  saveMapState,
+  restoreMapState,
 });
 </script>

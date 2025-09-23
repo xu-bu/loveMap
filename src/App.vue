@@ -1,12 +1,15 @@
-
 <template>
   <div id="app">
-    <router-view />
+    <!-- cache page by route name -->
+    <router-view v-slot="{ Component }">
+      <keep-alive :include="['GaodeMap']">
+        <component :is="Component" />
+      </keep-alive>
+    </router-view>
   </div>
 </template>
 
 <script setup>
-// No imports or logic needed for minimal setup
 </script>
 
 <style>

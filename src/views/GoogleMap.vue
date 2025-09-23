@@ -4,6 +4,7 @@ import { onMounted, ref, type Ref } from "vue";
 import { useMap } from "../composables/mapView";
 import { useSearch } from "../composables/useGoogleSearch";
 import "../assets/styles/googleMap.css";
+import { truncateText, formatDate } from '../utils/utils'
 
 const location: Ref<{ lat: number; lng: number } | null> = ref(null);
 const {
@@ -17,8 +18,6 @@ const {
   handleMapClick,
   handleLoveSpotClick,
   loadLoveSpots,
-  truncateText,
-  formatDate,
 } = useMap(location);
 const {
   searchQuery,
@@ -72,36 +71,18 @@ onMounted(async () => {
     <!-- Search Bar with Autocomplete -->
     <div class="search-container">
       <div class="search-wrapper">
-        <input
-          ref="searchInput"
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search Google Maps"
-          class="search-input"
-          @input="onSearchInput"
-          @focus="onSearchFocus"
-          @blur="onSearchBlur"
-          @keydown="handleKeyDown"
-        />
+        <input ref="searchInput" v-model="searchQuery" type="text" placeholder="Search Google Maps" class="search-input"
+          @input="onSearchInput" @focus="onSearchFocus" @blur="onSearchBlur" @keydown="handleKeyDown" />
         <button @click="clearSearch" v-if="searchQuery" class="clear-search">
           ×
         </button>
 
         <!-- Search Results Dropdown -->
-        <div
-          v-if="showSuggestions && searchSuggestions.length > 0"
-          class="search-suggestions"
-        >
-          <div
-            v-for="(suggestion, index) in searchSuggestions"
-            :key="index"
-            :class="[
-              'suggestion-item',
-              { selected: selectedSuggestionIndex === index },
-            ]"
-            @mousedown.prevent="selectSuggestion(suggestion)"
-            @mouseenter="selectedSuggestionIndex = index"
-          >
+        <div v-if="showSuggestions && searchSuggestions.length > 0" class="search-suggestions">
+          <div v-for="(suggestion, index) in searchSuggestions" :key="index" :class="[
+            'suggestion-item',
+            { selected: selectedSuggestionIndex === index },
+          ]" @mousedown.prevent="selectSuggestion(suggestion)" @mouseenter="selectedSuggestionIndex = index">
             <div class="suggestion-icon">📍</div>
             <div class="suggestion-text">
               <div class="suggestion-name">
@@ -124,21 +105,12 @@ onMounted(async () => {
     </div>
 
     <!-- Map -->
-    <GoogleMap
-      :apiKey="VITE_GOOGLE_MAPS_API_KEY"
-      :mapId="VITE_MAP_ID"
-      :center="location"
-      :zoom="zoom"
-      class="google-map"
-      @click="handleMapClick"
-      @ready="onMapReady"
-    >
+    <GoogleMap :apiKey="VITE_GOOGLE_MAPS_API_KEY" :mapId="VITE_MAP_ID" :center="location" :zoom="zoom"
+      class="google-map" @click="handleMapClick" @ready="onMapReady">
       <!-- Current location marker -->
-      <AdvancedMarker
-        :options="{
-          position: { lat: location.lat, lng: location.lng },
-        }"
-      >
+      <AdvancedMarker :options="{
+        position: { lat: location.lat, lng: location.lng },
+      }">
         <template #content>
           <div class="current-location-marker">
             <div class="pulse"></div>
@@ -148,12 +120,9 @@ onMounted(async () => {
       </AdvancedMarker>
 
       <!-- Search result marker -->
-      <AdvancedMarker
-        v-if="searchResult"
-        :options="{
-          position: searchResult.position,
-        }"
-      >
+      <AdvancedMarker v-if="searchResult" :options="{
+        position: searchResult.position,
+      }">
         <template #content>
           <div class="search-marker">🔍</div>
         </template>
@@ -169,17 +138,12 @@ onMounted(async () => {
       </AdvancedMarker>
 
       <!-- Love Spot Markers -->
-      <AdvancedMarker
-        v-for="loveSpot in loveSpots"
-        :key="loveSpot.id"
-        :options="{
-          position: {
-            lat: loveSpot.coordinates.lat,
-            lng: loveSpot.coordinates.lng,
-          },
-        }"
-        @click="() => handleLoveSpotClick(loveSpot)"
-      >
+      <AdvancedMarker v-for="loveSpot in loveSpots" :key="loveSpot.id" :options="{
+        position: {
+          lat: loveSpot.coordinates.lat,
+          lng: loveSpot.coordinates.lng,
+        },
+      }" @click="() => handleLoveSpotClick(loveSpot)">
         <template #content>
           <div class="love-spot-marker">💖</div>
         </template>
@@ -188,23 +152,13 @@ onMounted(async () => {
             <h3>{{ loveSpot.address }}</h3>
             <div class="love-spot-preview">
               <p>{{ truncateText(loveSpot.content, 100) }}</p>
-              <div
-                v-if="loveSpot.photos && loveSpot.photos.length > 0"
-                class="photo-preview"
-              >
-                <img
-                  :src="loveSpot.photos[0]"
-                  alt="Love spot preview"
-                  class="preview-image"
-                />
+              <div v-if="loveSpot.photos && loveSpot.photos.length > 0" class="photo-preview">
+                <img :src="loveSpot.photos[0]" alt="Love spot preview" class="preview-image" />
               </div>
               <div class="love-spot-meta">
                 <span class="date">{{ formatDate(loveSpot.created_at) }}</span>
               </div>
-              <button
-                @click="() => handleLoveSpotClick(loveSpot)"
-                class="view-details-button"
-              >
+              <button @click="() => handleLoveSpotClick(loveSpot)" class="view-details-button">
                 👀 View Details
               </button>
             </div>

@@ -87,21 +87,6 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     });
   }
 
-  const truncateText = (text: string, maxLength: number): string => {
-    if (!text) return "";
-    return text.length > maxLength
-      ? text.substring(0, maxLength) + "..."
-      : text;
-  };
-
-  const formatDate = (date: string | Date | undefined): string => {
-    if (!date) return "";
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   return {
     // Environment variables
@@ -120,7 +105,5 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     loadLoveSpots,
     handleMapClick,
     handleLoveSpotClick,
-    truncateText,
-    formatDate,
   };
 }

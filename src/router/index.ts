@@ -4,13 +4,13 @@ import GoogleMap from '../views/GoogleMap.vue'
 import GaodeMap from '../views/GaodeMap.vue'
 import CreateLoveSpot from '../views/CreateLoveSpot.vue'
 import LoveSpot from '../views/LoveSpot.vue'
-import IndexView from '../views/IndexView.vue'
+// import IndexView from '../views/IndexView.vue'
 import TestView from '../views/TestView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect:'/gaodeMap?loadLoveSpot=true'
+    redirect:'/gaodeMap'
     // name: 'IndexView',
     // component: IndexView
   },

@@ -31,12 +31,19 @@
   left: 20px;
   right: 50%;
   z-index: 1000;
+}
 
+/* Search wrapper for positioning the loading icon */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
 
 .search-input {
   width: 100%;
-  padding: 16px;
+  padding: 16px 40px 16px 16px; /* Added right padding for loading icon */
   border: none;
   border-radius: 12px;
   background: white;
@@ -47,6 +54,31 @@
 
 .search-input:focus {
   box-shadow: 0 6px 25px rgba(0,0,0,0.2);
+}
+
+/* Search loading icon */
+.search-loading-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: search-spin 1s linear infinite;
+}
+
+@keyframes search-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .suggestions-dropdown {
@@ -239,7 +271,11 @@
   }
   
   .search-input {
-    padding: 14px;
+    padding: 14px 36px 14px 14px; /* Adjusted padding for mobile */
+  }
+
+  .search-loading-icon {
+    right: 14px; /* Adjusted for mobile */
   }
   
   .floating-controls {
