@@ -1,10 +1,11 @@
-import { ref, computed, onMounted, type Ref } from "vue";
+import { ref, onMounted, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getSupabaseClient } from "../services/db";
 import { GoogleSearchService } from "../services/googleSearch";
 import { LocationData, PhotoData, Database } from "../types/db";
 import { getRegeoCode } from "../composables/gaodeMap";
 import { log } from "@/utils/logger";
+import { loveSpotState } from "@/types/common";
 
 const supabaseClient = getSupabaseClient();
 // Global table reference
@@ -16,15 +17,28 @@ export const useCreateLoveSpot = () => {
   const googleSearchService = new GoogleSearchService();
 
   // Get coordinates from query parameters
-  const lat = computed(() => route.query.lat as string);
-  const lng = computed(() => route.query.lng as string);
-  const origin = computed(() => route.query.origin as string);
-  const address = computed(() => route.query.address as string);
+  let lat = route.query.lat as any;
+  let lng = route.query.lng as any;
+  const origin = route.query.origin;
+  let color: string = "#fff";
+  let address: string = "";
+  let content = "";
+  const stateData = history.state! as loveSpotState;
+
+  if (stateData) {
+    lat = stateData.loveSpot.coordinates.lat;
+    lng = stateData.loveSpot.coordinates.lng;
+    address = stateData.loveSpot.address;
+    color = stateData.loveSpot.color;
+    content = stateData.loveSpot.content;
+  }
+
+  // loveSpot.value = stateData;
 
   // Reactive data
-  const addressRef: Ref<string> = ref(address.value);
+  const addressRef: Ref<string> = ref(address);
   const loading: Ref<boolean> = ref(true);
-  const content: Ref<string> = ref("");
+  const contentRef: Ref<string> = ref(content);
   const uploadedPhotos: Ref<PhotoData[]> = ref([]);
   const uploading: Ref<boolean> = ref(false);
   const uploadProgress: Ref<number> = ref(0);
@@ -42,18 +56,20 @@ export const useCreateLoveSpot = () => {
 
     try {
       loading.value = true;
-      if (origin.value === "google") {
+      log("origin:", origin);
+      if (origin === "google") {
         addressRef.value = await googleSearchService.getAddress(
           lat.value,
           lng.value
         );
-      } else if (origin.value === "gaode") {
+      } else if (origin === "gaode") {
         addressRef.value = await getRegeoCode(lat.value, lng.value);
       }
     } catch (error) {
       console.error("Error getting address:", error);
       addressRef.value = "Unable to load address";
     } finally {
+      console.log("address:", addressRef.value);
       loading.value = false;
     }
   };
@@ -177,8 +193,9 @@ export const useCreateLoveSpot = () => {
         },
         address: addressRef.value,
         photos: uploadedPhotos.value.map((photo) => photo.url), // Array of Supabase URLs
-        content: content.value,
+        content: contentRef.value,
         created_at: new Date(),
+        color,
       };
 
       if (locationDocId) {
@@ -216,6 +233,11 @@ export const useCreateLoveSpot = () => {
 
         alert("Location saved successfully!");
       }
+      const loveSpots = JSON.parse(localStorage.getItem("loveSpots") || "[]");
+      // update localStorage
+      loveSpots.push(locationData);
+      localStorage.setItem("loveSpots", JSON.stringify(loveSpots));
+      router.back();
     } catch (error) {
       console.error("Error saving to database:", error);
       alert("Failed to save location. Please try again.");
@@ -251,10 +273,7 @@ export const useCreateLoveSpot = () => {
   };
 
   onMounted(() => {
-    // Get address if coordinates are available
-    if (lat.value && lng.value) {
-      getAddress();
-    }
+    getAddress();
   });
 
   // Return all reactive values and functions that the component needs
@@ -269,7 +288,7 @@ export const useCreateLoveSpot = () => {
     // Reactive data
     address: addressRef,
     loading,
-    content,
+    content: contentRef,
     uploadedPhotos,
     uploading,
     uploadProgress,

@@ -7,6 +7,7 @@ export interface LocationData {
   address: string;
   photos: string[];
   content: string;
+  color: string;
   created_at?: Date;
 }
 

@@ -225,35 +225,6 @@ const oneTimeInitMap = async () => {
     loading.value = false;
   }
 };
-
-// Reattach existing map to DOM and restore state
-const reattachMap = async () => {
-  try {
-    loading.value = true;
-
-    // Get the preserved map instance
-    map = window.__GLOBAL_MAP_INSTANCE__;
-    plugins = window.__GLOBAL_MAP_PLUGINS__ || createMapPlugins(map, window.AMap);
-
-    // Re-setup event listeners (they might be lost)
-    setupEventListeners();
-
-    // Restore the previous state
-    restoreMapState();
-
-    // Refresh love spots in case they changed
-    await loadLoveSpots();
-    displayLoveSpots();
-
-    loading.value = false;
-    log("✅ Map reattached with preserved state");
-  } catch (err) {
-    console.error("❌ Failed to reattach map:", err);
-    // Fallback to normal init
-    await oneTimeInitMap();
-  }
-};
-
 // Display love spots on the map
 const displayLoveSpots = () => {
   if (!map) return;
