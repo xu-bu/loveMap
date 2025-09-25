@@ -1,4 +1,4 @@
-export interface LocationData {
+export interface loveSpot {
   id?: string;
   coordinates: {
     lat: number;
@@ -20,9 +20,9 @@ export interface Database {
   public: {
     Tables: {
       loveMap: {
-        Row: LocationData & { id: string };
-        Insert: LocationData;
-        Update: Partial<LocationData>;
+        Row: loveSpot & { id: string };
+        Insert: loveSpot;
+        Update: Partial<loveSpot>;
       };
     };
   };

@@ -4,6 +4,7 @@ import "../assets/styles/createLoveSpot.css"
 
 const {
   router,
+  color,
   lat,
   lng,
   address,
@@ -38,11 +39,11 @@ const goBack = () => {
     </header>
 
     <!-- Scrollable Content -->
-    <div class="scrollable-content">
+    <div class="scrollable-content" :style="{ background: color }">
       <!-- Location Section -->
       <section class="section location-section">
         <h2>📍 Location</h2>
-        
+
         <!-- Coordinates Display -->
         <div class="coordinates-card">
           <div class="coordinates-info">
@@ -74,17 +75,10 @@ const goBack = () => {
       <!-- Photos Section -->
       <section class="section photos-section">
         <h2>📸 Photos</h2>
-        
+
         <!-- Upload Area -->
         <div class="upload-area">
-          <input
-            id="photoInput"
-            type="file"
-            multiple
-            accept="image/*"
-            @change="handleFileSelect"
-            class="file-input"
-          />
+          <input id="photoInput" type="file" multiple accept="image/*" @change="handleFileSelect" class="file-input" />
           <label for="photoInput" class="upload-label">
             <div class="upload-content">
               <div class="upload-icon">📷</div>
@@ -97,26 +91,16 @@ const goBack = () => {
         <!-- Upload Progress -->
         <div v-if="uploading" class="upload-progress">
           <div class="progress-bar">
-            <div 
-              class="progress-fill" 
-              :style="{ width: `${uploadProgress}%` }"
-            ></div>
+            <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
           </div>
           <span class="progress-text">{{ uploadProgress }}% uploaded</span>
         </div>
 
         <!-- Photo Gallery -->
         <div v-if="uploadedPhotos.length > 0" class="photo-gallery">
-          <div 
-            v-for="(photo, index) in uploadedPhotos" 
-            :key="index" 
-            class="photo-item"
-          >
+          <div v-for="(photo, index) in uploadedPhotos" :key="index" class="photo-item">
             <img :src="photo.url" :alt="`Photo ${index + 1}`" />
-            <button 
-              @click="removePhoto(index)" 
-              class="remove-photo-btn"
-            >
+            <button @click="removePhoto(index)" class="remove-photo-btn">
               ❌
             </button>
             <div class="photo-date">
@@ -130,12 +114,9 @@ const goBack = () => {
       <section class="section story-section">
         <h2>💕 Your Story</h2>
         <div class="story-input-container">
-          <textarea
-            v-model="content"
+          <textarea v-model="content"
             placeholder="Tell the story of this special place... What makes it meaningful? What memories were made here?"
-            class="story-textarea"
-            rows="8"
-          ></textarea>
+            class="story-textarea" rows="8"></textarea>
           <div class="character-count">
             {{ content.length }} characters
           </div>
@@ -145,11 +126,8 @@ const goBack = () => {
       <!-- Action Buttons -->
       <section class="section actions-section">
         <div class="action-buttons">
-          <button 
-            @click="saveToDatabase" 
-            class="btn btn-primary"
-            :disabled="!content.trim() || uploadedPhotos.length === 0"
-          >
+          <button @click="saveToDatabase" class="btn btn-primary"
+            :disabled="!content.trim() || uploadedPhotos.length === 0">
             💾 Save Love Spot
           </button>
           <button @click="goBack" class="btn btn-secondary">

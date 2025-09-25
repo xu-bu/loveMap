@@ -1,12 +1,12 @@
 import { ref, onMounted, type Ref } from "vue";
 import { useRouter } from "vue-router";
-import { LocationData } from "../types/db";
+import { loveSpot } from "../types/db";
 import { loveSpotState } from "../types/common";
 import { log } from "@/utils/logger";
 
 export function useLoveSpot() {
   const router = useRouter();
-  const loveSpot: Ref<LocationData | null> = ref(null);
+  const loveSpot: Ref<loveSpot | null> = ref(null);
   const loading = ref(false);
   const error = ref("");
   const currentPhotoIndex = ref(0);

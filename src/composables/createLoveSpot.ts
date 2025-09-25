@@ -2,7 +2,7 @@ import { ref, onMounted, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getSupabaseClient } from "../services/db";
 import { GoogleSearchService } from "../services/googleSearch";
-import { LocationData, PhotoData, Database } from "../types/db";
+import { loveSpot, PhotoData, Database } from "../types/db";
 import { getRegeoCode } from "../composables/gaodeMap";
 import { log } from "@/utils/logger";
 import { loveSpotState } from "@/types/common";
@@ -17,8 +17,8 @@ export const useCreateLoveSpot = () => {
   const googleSearchService = new GoogleSearchService();
 
   // Get coordinates from query parameters
-  let lat = route.query.lat as any;
-  let lng = route.query.lng as any;
+  let lat = route.query.lat as string;
+  let lng = route.query.lng as string;
   const origin = route.query.origin;
   let color: string = "#fff";
   let address: string = "";
@@ -30,8 +30,8 @@ export const useCreateLoveSpot = () => {
   // when edit an existing loveSpot, state is set
   if (stateData.loveSpot) {
     log("edit loveSpot---");
-    lat = stateData.loveSpot.coordinates.lat;
-    lng = stateData.loveSpot.coordinates.lng;
+    lat = stateData.loveSpot.coordinates.lat.toString() ;
+    lng = stateData.loveSpot.coordinates.lng.toString();
     address = stateData.loveSpot.address;
     color = stateData.loveSpot.color;
     content = stateData.loveSpot.content;
@@ -49,7 +49,10 @@ export const useCreateLoveSpot = () => {
   // Reverse geocode to get address
   const getAddress = async (): Promise<void> => {
     log("current coordinates:", lat, lng);
-    if (!lat.value || !lng.value || addressRef.value) {
+    log("adderss:", addressRef.value);
+    console.log("bool value: ",Boolean(addressRef.value));
+    if (!lat || !lng || addressRef.value) {
+      console.log("skip geocoding")
       loading.value = false;
       return;
     }
@@ -59,11 +62,11 @@ export const useCreateLoveSpot = () => {
       log("origin:", origin);
       if (origin === "google") {
         addressRef.value = await googleSearchService.getAddress(
-          lat.value,
-          lng.value
+          lat,
+          lng
         );
       } else if (origin === "gaode") {
-        addressRef.value = await getRegeoCode(lat.value, lng.value);
+        addressRef.value = await getRegeoCode(lat, lng);
       }
     } catch (error) {
       console.error("Error getting address:", error);
@@ -76,7 +79,7 @@ export const useCreateLoveSpot = () => {
 
   // Copy coordinates to clipboard
   const copyCoordinates = async (): Promise<void> => {
-    const coordString = `${lat.value}, ${lng.value}`;
+    const coordString = `${lat}, ${lng}`;
     try {
       await navigator.clipboard.writeText(coordString);
       alert("Coordinates copied to clipboard!");
@@ -186,10 +189,10 @@ export const useCreateLoveSpot = () => {
   // Save location data to Supabase
   const saveToDatabase = async (): Promise<void> => {
     try {
-      const locationData: LocationData = {
+      const locationData: loveSpot = {
         coordinates: {
-          lat: Number(lat.value),
-          lng: Number(lng.value),
+          lat: Number(lat),
+          lng: Number(lng),
         },
         address: addressRef.value,
         photos: uploadedPhotos.value.map((photo) => photo.url), // Array of Supabase URLs
@@ -268,7 +271,7 @@ export const useCreateLoveSpot = () => {
 
   // Open in device's maps app
   const openInMaps = (): void => {
-    const url = `https://www.google.com/maps?q=${lat.value},${lng.value}`;
+    const url = `https://www.google.com/maps?q=${lat},${lng}`;
     window.open(url, "_blank");
   };
 
@@ -281,11 +284,10 @@ export const useCreateLoveSpot = () => {
     // Router
     router,
 
-    // Computed values
+    // Reactive data
+    color,
     lat,
     lng,
-
-    // Reactive data
     address: addressRef,
     loading,
     content: contentRef,
