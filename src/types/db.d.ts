@@ -1,5 +1,5 @@
 export interface LocationData {
-  id?: number;
+  id?: string;
   coordinates: {
     lat: number;
     lng: number;

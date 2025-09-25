@@ -24,16 +24,19 @@ export const useCreateLoveSpot = () => {
   let address: string = "";
   let content = "";
   const stateData = history.state! as loveSpotState;
-
-  if (stateData) {
+  // Location document ID
+  let loveSpotDocId: string;
+  // for edit
+  // when edit an existing loveSpot, state is set
+  if (stateData.loveSpot) {
+    log("edit loveSpot---");
     lat = stateData.loveSpot.coordinates.lat;
     lng = stateData.loveSpot.coordinates.lng;
     address = stateData.loveSpot.address;
     color = stateData.loveSpot.color;
     content = stateData.loveSpot.content;
+    loveSpotDocId = stateData.loveSpot.id || "";
   }
-
-  // loveSpot.value = stateData;
 
   // Reactive data
   const addressRef: Ref<string> = ref(address);
@@ -43,12 +46,9 @@ export const useCreateLoveSpot = () => {
   const uploading: Ref<boolean> = ref(false);
   const uploadProgress: Ref<number> = ref(0);
 
-  // Location document ID
-  const locationDocId: string | null = null;
-
   // Reverse geocode to get address
   const getAddress = async (): Promise<void> => {
-    log(addressRef.value);
+    log("current coordinates:", lat, lng);
     if (!lat.value || !lng.value || addressRef.value) {
       loading.value = false;
       return;
@@ -198,7 +198,7 @@ export const useCreateLoveSpot = () => {
         color,
       };
 
-      if (locationDocId) {
+      if (loveSpotDocId) {
         // Update existing record - exclude created_at from updates
         const updateData = {
           coordinates: locationData.coordinates,
@@ -209,7 +209,7 @@ export const useCreateLoveSpot = () => {
 
         const { error } = await table
           .update(updateData)
-          .eq("id", locationDocId);
+          .eq("id", loveSpotDocId);
 
         if (error) {
           throw error;

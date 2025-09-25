@@ -1,9 +1,10 @@
-import { ref, type Ref } from "vue";
+import { ref, toRaw, type Ref } from "vue";
 import { log } from "../utils/logger";
 import router from "@/router/index";
 import { getSupabaseClient } from "../services/db";
 import type { LocationData } from "../types/db";
 import { locateUserByIP } from "../utils/locateUserByIP";
+import {loveSpotState} from "../types/common";
 
 const supabaseClient = getSupabaseClient();
 const needsRefresh = ref(true); // Start as true for initial load
@@ -83,7 +84,7 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     // Redirect to love spot page with the spot ID
     router.push({
       name: "LoveSpot",
-      state: { loveSpot: JSON.parse(JSON.stringify(loveSpot)) },
+      state: { loveSpot: toRaw(loveSpot) as unknown as loveSpotState },
     });
   }
 

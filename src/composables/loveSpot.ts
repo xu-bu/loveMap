@@ -41,7 +41,7 @@ export function useLoveSpot() {
     if (loveSpot.value) {
       router.push({
         name: "CreateLoveSpot",
-        state: { loveSpot: JSON.parse(JSON.stringify(loveSpot.value)) },
+        state: { loveSpot: structuredClone(loveSpot.value) as any },
       });
     }
   };
