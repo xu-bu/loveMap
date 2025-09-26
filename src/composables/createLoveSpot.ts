@@ -30,6 +30,7 @@ export const useCreateLoveSpot = () => {
   // when edit an existing loveSpot, state is set
   if (stateData.loveSpot) {
     log("edit loveSpot---");
+    log("loveSpotID:", stateData.loveSpot.id);
     lat = stateData.loveSpot.coordinates.lat.toString() ;
     lng = stateData.loveSpot.coordinates.lng.toString();
     address = stateData.loveSpot.address;
