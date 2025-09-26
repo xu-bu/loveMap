@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useCreateLoveSpot } from '../composables/createLoveSpot' // Adjust path as needed
 import "../assets/styles/createLoveSpot.css"
+import { COLORS } from '../consts';
 
 const {
-  router,
-  color,
+  selectedColor,
+  showAllColors,
+  selectedColorName,
   lat,
   lng,
   address,
@@ -17,12 +19,13 @@ const {
   handleFileSelect,
   removePhoto,
   saveToDatabase,
-  openInMaps
+  openInMaps,
+  goBack,
+  selectColor
 } = useCreateLoveSpot()
 
-const goBack = () => {
-  router.back()
-}
+
+
 </script>
 
 <template>
@@ -39,7 +42,7 @@ const goBack = () => {
     </header>
 
     <!-- Scrollable Content -->
-    <div class="scrollable-content" :style="{ background: color }">
+    <div class="scrollable-content" :style="{ background: selectedColor }">
       <!-- Location Section -->
       <section class="section location-section">
         <h2>📍 Location</h2>
@@ -69,6 +72,35 @@ const goBack = () => {
             <span>Finding address...</span>
           </div>
           <p v-else class="address-text" contenteditable="true">{{ address }}</p>
+        </div>
+      </section>
+
+      <!-- Color Theme Section -->
+      <section class="section color-section">
+        <h2>🎨 Choose Theme Color</h2>
+        <div class="color-palette">
+          <!-- Color Options -->
+          <div class="color-options" :class="{ expanded: showAllColors }">
+            <button v-for="color in (showAllColors ? COLORS : COLORS.slice(0, 5))" :key="color.name"
+              @click="selectColor(color)" :class="['color-swatch', { active: selectedColor === color.gradient }]"
+              :style="{ background: color.gradient }" :title="color.name">
+              <span v-if="selectedColor === color.gradient" class="check-mark">✓</span>
+            </button>
+          </div>
+
+          <!-- Expand/Collapse Button -->
+          <button  @click="showAllColors = !showAllColors" class="expand-btn"
+            :style="{ background: selectedColor }">
+            {{ showAllColors ? 'Show Less' : `Show All (${COLORS.length} colors)` }}
+            <span class="expand-icon" :class="{ rotated: showAllColors }">▼</span>
+          </button>
+
+          <!-- Selected Color Preview -->
+          <div class="selected-color-preview">
+            <div class="preview-card" :style="{ background: selectedColor }">
+              <h4>{{ selectedColorName }}</h4>
+            </div>
+          </div>
         </div>
       </section>
 

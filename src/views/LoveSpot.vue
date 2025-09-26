@@ -144,7 +144,7 @@ const isDragging = ref(false);
 const swipeDirection = ref('');
 // Safe computed properties to handle null/undefined
 const spot = computed(() => loveSpot.value);
-const color = computed(() => spot.value?.color || '');
+const color = computed(() => spot.value?.color);
 console.log("loveSpot color:", spot.value?.color);
 const hasPhotos = computed(() => Boolean(spot.value?.photos?.length));
 

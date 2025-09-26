@@ -6,6 +6,7 @@ import { loveSpot, Database } from "../types/db";
 import { getRegeoCode } from "../composables/gaodeMap";
 import { log } from "@/utils/logger";
 import { loveSpotState } from "@/types/common";
+import { COLORS } from "../consts";
 
 const supabaseClient = getSupabaseClient();
 // Global table reference
@@ -20,7 +21,8 @@ export const useCreateLoveSpot = () => {
   let lat = route.query.lat as string;
   let lng = route.query.lng as string;
   const origin = route.query.origin;
-  let color: string = "#fff";
+  let color: string = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
+  let colorName = COLORS.filter((colorObj) => colorObj.gradient === color)[0].name;
   let address: string = "";
   let content = "";
   const stateData = history.state! as loveSpotState;
@@ -36,6 +38,7 @@ export const useCreateLoveSpot = () => {
     lng = stateData.loveSpot.coordinates.lng.toString();
     address = stateData.loveSpot.address;
     color = stateData.loveSpot.color;
+    colorName = COLORS.filter((colorObj) => colorObj.gradient === color)[0].name;
     content = stateData.loveSpot.content;
     loveSpotDocId = stateData.loveSpot.id || "";
     uploadedPhotos = stateData.loveSpot.photos;
@@ -49,6 +52,9 @@ export const useCreateLoveSpot = () => {
   const uploadedPhotosRef: Ref<string[]> = ref(uploadedPhotos);
   const uploading: Ref<boolean> = ref(false);
   const uploadProgress: Ref<number> = ref(0);
+  const selectedColor = ref(color);
+  const showAllColors = ref(false);
+  const selectedColorName = ref(colorName);
 
   // Reverse geocode to get address
   const getAddress = async (): Promise<void> => {
@@ -275,6 +281,15 @@ export const useCreateLoveSpot = () => {
     window.open(url, "_blank");
   };
 
+  const goBack = () => {
+    router.back();
+  };
+  const selectColor = (colorObj) => {
+    log(colorObj)
+    selectedColor.value = colorObj.gradient;
+    selectedColorName.value = colorObj.name;
+  };
+
   onMounted(() => {
     getAddress();
   });
@@ -285,7 +300,9 @@ export const useCreateLoveSpot = () => {
     router,
 
     // Reactive data
-    color,
+    selectedColor,
+    showAllColors,
+    selectedColorName,
     lat,
     lng,
     address: addressRef,
@@ -301,5 +318,7 @@ export const useCreateLoveSpot = () => {
     removePhoto,
     saveToDatabase,
     openInMaps,
+    goBack,
+    selectColor,
   };
 };
