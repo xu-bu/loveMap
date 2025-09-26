@@ -1,4 +1,4 @@
-import { ref, onMounted, type Ref } from "vue";
+import { ref, onMounted, type Ref, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import { loveSpot } from "../types/db";
 import { loveSpotState } from "../types/common";
@@ -37,13 +37,10 @@ export function useLoveSpot() {
   };
 
   const editLoveSpot = () => {
-    log("Edit Love Spot:", loveSpot.value);
-    if (loveSpot.value) {
-      router.push({
-        name: "CreateLoveSpot",
-        state: { loveSpot: structuredClone(loveSpot.value) as any },
-      });
-    }
+    router.push({
+      name: "CreateLoveSpot",
+      state: { loveSpot: toRaw(loveSpot.value) as unknown as loveSpotState },
+    });
   };
 
   // Auto-load on mount

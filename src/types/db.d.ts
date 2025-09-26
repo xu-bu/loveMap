@@ -11,11 +11,6 @@ export interface loveSpot {
   created_at?: Date;
 }
 
-export interface PhotoData {
-  url: string;
-  uploadedAt: Date;
-}
-
 export interface Database {
   public: {
     Tables: {

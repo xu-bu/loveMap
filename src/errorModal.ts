@@ -35,7 +35,8 @@ export const initGlobalErrorHandler = (app: App) => {
 
   // Global JavaScript errors
   window.onerror = (msg, url, line, col, error) => {
-    console.error('Global Error:', error);
+    if (!error) return
+    console.error('Global Error:', msg, url, line, col, error);
     const errorMessage = error?.stack || `${msg} at ${url}:${line}:${col}`;
     showErrorModal(`JavaScript Error: ${errorMessage}`);
     return true; // Prevent default browser error handling

@@ -2,7 +2,7 @@ import { ref, onMounted, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getSupabaseClient } from "../services/db";
 import { GoogleSearchService } from "../services/googleSearch";
-import { loveSpot, PhotoData, Database } from "../types/db";
+import { loveSpot, Database } from "../types/db";
 import { getRegeoCode } from "../composables/gaodeMap";
 import { log } from "@/utils/logger";
 import { loveSpotState } from "@/types/common";
@@ -24,6 +24,7 @@ export const useCreateLoveSpot = () => {
   let address: string = "";
   let content = "";
   const stateData = history.state! as loveSpotState;
+  let uploadedPhotos: string[] = [];
   // Location document ID
   let loveSpotDocId: string;
   // for edit
@@ -31,19 +32,21 @@ export const useCreateLoveSpot = () => {
   if (stateData.loveSpot) {
     log("edit loveSpot---");
     log("loveSpotID:", stateData.loveSpot.id);
-    lat = stateData.loveSpot.coordinates.lat.toString() ;
+    lat = stateData.loveSpot.coordinates.lat.toString();
     lng = stateData.loveSpot.coordinates.lng.toString();
     address = stateData.loveSpot.address;
     color = stateData.loveSpot.color;
     content = stateData.loveSpot.content;
     loveSpotDocId = stateData.loveSpot.id || "";
+    uploadedPhotos = stateData.loveSpot.photos;
+    log("uploadedPhotos:", uploadedPhotos);
   }
 
   // Reactive data
   const addressRef: Ref<string> = ref(address);
   const loading: Ref<boolean> = ref(true);
   const contentRef: Ref<string> = ref(content);
-  const uploadedPhotos: Ref<PhotoData[]> = ref([]);
+  const uploadedPhotosRef: Ref<string[]> = ref(uploadedPhotos);
   const uploading: Ref<boolean> = ref(false);
   const uploadProgress: Ref<number> = ref(0);
 
@@ -51,9 +54,9 @@ export const useCreateLoveSpot = () => {
   const getAddress = async (): Promise<void> => {
     log("current coordinates:", lat, lng);
     log("adderss:", addressRef.value);
-    console.log("bool value: ",Boolean(addressRef.value));
+    console.log("bool value: ", Boolean(addressRef.value));
     if (!lat || !lng || addressRef.value) {
-      console.log("skip geocoding")
+      console.log("skip geocoding");
       loading.value = false;
       return;
     }
@@ -62,10 +65,7 @@ export const useCreateLoveSpot = () => {
       loading.value = true;
       log("origin:", origin);
       if (origin === "google") {
-        addressRef.value = await googleSearchService.getAddress(
-          lat,
-          lng
-        );
+        addressRef.value = await googleSearchService.getAddress(lat, lng);
       } else if (origin === "gaode") {
         addressRef.value = await getRegeoCode(lat, lng);
       }
@@ -117,10 +117,7 @@ export const useCreateLoveSpot = () => {
         const photoUrl = await uploadSinglePhoto(file);
 
         // Add photo to the array immediately after each upload
-        uploadedPhotos.value.push({
-          url: photoUrl,
-          uploadedAt: new Date(),
-        });
+        uploadedPhotosRef.value.push(photoUrl);
 
         // Update progress for multiple files
         uploadProgress.value = Math.round(((i + 1) / files.length) * 100);
@@ -173,14 +170,14 @@ export const useCreateLoveSpot = () => {
 
   // Remove photo from list and Supabase Storage
   const removePhoto = async (index: number): Promise<void> => {
-    const photo = uploadedPhotos.value[index];
+    const photo = uploadedPhotosRef.value[index];
 
     // Remove from local array immediately (photo disappears from UI)
-    uploadedPhotos.value.splice(index, 1);
+    uploadedPhotosRef.value.splice(index, 1);
 
     // Delete from Supabase Storage in the background
     try {
-      await deleteFromSupabase(photo.url);
+      await deleteFromSupabase(photo);
       console.log("Photo deleted from Supabase Storage");
     } catch (error) {
       console.error("Error deleting photo from Supabase:", error);
@@ -196,11 +193,12 @@ export const useCreateLoveSpot = () => {
           lng: Number(lng),
         },
         address: addressRef.value,
-        photos: uploadedPhotos.value.map((photo) => photo.url), // Array of Supabase URLs
+        photos: uploadedPhotosRef.value,
         content: contentRef.value,
         created_at: new Date(),
         color,
       };
+      const loveSpots = JSON.parse(localStorage.getItem("loveSpots") || "[]");
 
       if (loveSpotDocId) {
         // Update existing record - exclude created_at from updates
@@ -209,8 +207,8 @@ export const useCreateLoveSpot = () => {
           address: locationData.address,
           photos: locationData.photos,
           content: locationData.content,
+          color: locationData.color,
         };
-
         const { error } = await table
           .update(updateData)
           .eq("id", loveSpotDocId);
@@ -218,8 +216,12 @@ export const useCreateLoveSpot = () => {
         if (error) {
           throw error;
         }
+        // update localStorage
+        const toUpdateIndex = loveSpots.findIndex(
+          (loveSpot) => loveSpot.id === loveSpotDocId
+        );
 
-        alert("Location updated successfully!");
+        loveSpots[toUpdateIndex] = updateData;
       } else {
         // Create new record
         const insertData = {
@@ -227,19 +229,16 @@ export const useCreateLoveSpot = () => {
           address: locationData.address,
           photos: locationData.photos,
           content: locationData.content,
+          color: locationData.color,
         } as Database["public"]["Tables"]["loveMap"]["Insert"];
-
-        const { error } = await table.insert(insertData).select();
+        const { error } = await table.insert(insertData);
 
         if (error) {
           throw error;
         }
-
-        alert("Location saved successfully!");
+        // update localStorage
+        loveSpots.push(locationData);
       }
-      const loveSpots = JSON.parse(localStorage.getItem("loveSpots") || "[]");
-      // update localStorage
-      loveSpots.push(locationData);
       localStorage.setItem("loveSpots", JSON.stringify(loveSpots));
       router.back();
     } catch (error) {
@@ -292,7 +291,7 @@ export const useCreateLoveSpot = () => {
     address: addressRef,
     loading,
     content: contentRef,
-    uploadedPhotos,
+    uploadedPhotos: uploadedPhotosRef,
     uploading,
     uploadProgress,
 

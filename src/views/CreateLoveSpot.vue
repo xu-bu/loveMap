@@ -99,13 +99,10 @@ const goBack = () => {
         <!-- Photo Gallery -->
         <div v-if="uploadedPhotos.length > 0" class="photo-gallery">
           <div v-for="(photo, index) in uploadedPhotos" :key="index" class="photo-item">
-            <img :src="photo.url" :alt="`Photo ${index + 1}`" />
+            <img :src="photo" :alt="`Photo ${index + 1}`" />
             <button @click="removePhoto(index)" class="remove-photo-btn">
               ❌
             </button>
-            <div class="photo-date">
-              {{ new Date(photo.uploadedAt).toLocaleDateString() }}
-            </div>
           </div>
         </div>
       </section>
