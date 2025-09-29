@@ -78,7 +78,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, onActivated, onDeactivated } from "vue";
 import { GaodePOI, SelectedPlace } from "../types/gaode";
-import type { loveSpot } from "../types/db";
+import type { LoveSpot } from "../types/db";
 import "../assets/styles/gaodeMap.css";
 import { useRouter } from "vue-router";
 import { useMap } from "../composables/mapView";
@@ -241,7 +241,7 @@ const displayLoveSpots = () => {
   loveSpots.value = JSON.parse(localStorage.getItem('loveSpots') || '[]');
 
   // Add markers for each love spot
-  loveSpots.value.forEach((loveSpot: loveSpot) => {
+  loveSpots.value.forEach((loveSpot: LoveSpot) => {
     addMarker(
       [loveSpot.coordinates.lng, loveSpot.coordinates.lat],
       "❤️",

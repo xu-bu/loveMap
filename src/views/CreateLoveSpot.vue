@@ -15,6 +15,7 @@ const {
   uploadedPhotos,
   uploading,
   uploadProgress,
+  updateAddress,
   copyCoordinates,
   handleFileSelect,
   removePhoto,
@@ -71,7 +72,7 @@ const {
             <div class="spinner">🔄</div>
             <span>Finding address...</span>
           </div>
-          <p v-else class="address-text" contenteditable="true">{{ address }}</p>
+          <p v-else class="address-text" contenteditable="true" @input="updateAddress">{{ address }}</p>
         </div>
       </section>
 

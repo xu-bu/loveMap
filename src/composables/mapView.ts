@@ -2,7 +2,7 @@ import { ref, toRaw, type Ref } from "vue";
 import { log } from "../utils/logger";
 import router from "@/router/index";
 import { getSupabaseClient } from "../services/db";
-import type { loveSpot } from "../types/db";
+import type { LoveSpot } from "../types/db";
 import { locateUserByIP } from "../utils/locateUserByIP";
 import {loveSpotState} from "../types/common";
 
@@ -13,7 +13,7 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
   const VITE_GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const VITE_MAP_ID = import.meta.env.VITE_MAP_ID;
 
-  const loveSpots = ref<loveSpot[]>([]);
+  const loveSpots = ref<LoveSpot[]>([]);
   const error = ref("");
   const loading = ref(false);
   const loadingSpots = ref(false);
@@ -55,7 +55,7 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     try {
       const { data, error: fetchError } = (await supabaseClient
         .from("loveMap")
-        .select("*")) as { data: loveSpot[] | null; error: any };
+        .select("*")) as { data: LoveSpot[] | null; error: any };
 
       if (fetchError) {
         console.error("Error fetching love spots:", fetchError);
@@ -80,7 +80,7 @@ export function useMap(location: Ref<{ lat: number; lng: number } | null>) {
     });
   }
 
-  function handleLoveSpotClick(loveSpot: loveSpot) {
+  function handleLoveSpotClick(loveSpot: LoveSpot) {
     // Redirect to love spot page with the spot ID
     router.push({
       name: "LoveSpot",

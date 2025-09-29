@@ -2,7 +2,7 @@ import { ref, onMounted, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getSupabaseClient } from "../services/db";
 import { GoogleSearchService } from "../services/googleSearch";
-import { loveSpot, Database } from "../types/db";
+import { LoveSpot, Database } from "../types/db";
 import { getRegeoCode } from "../composables/gaodeMap";
 import { log } from "@/utils/logger";
 import { loveSpotState } from "@/types/common";
@@ -21,10 +21,10 @@ export const useCreateLoveSpot = () => {
   let lat = route.query.lat as string;
   let lng = route.query.lng as string;
   const origin = route.query.origin;
-  let color: string = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
-  let colorName = COLORS.filter((colorObj) => colorObj.gradient === color)[0].name;
-  let address: string = "";
-  let content = "";
+  const selectedColor = ref('');
+  const selectedColorName = ref('');
+  const addressRef: Ref<string> = ref('');
+  const contentRef: Ref<string> = ref('');
   const stateData = history.state! as loveSpotState;
   let uploadedPhotos: string[] = [];
   // Location document ID
@@ -32,29 +32,22 @@ export const useCreateLoveSpot = () => {
   // for edit
   // when edit an existing loveSpot, state is set
   if (stateData.loveSpot) {
-    log("edit loveSpot---");
-    log("loveSpotID:", stateData.loveSpot.id);
     lat = stateData.loveSpot.coordinates.lat.toString();
     lng = stateData.loveSpot.coordinates.lng.toString();
-    address = stateData.loveSpot.address;
-    color = stateData.loveSpot.color;
-    colorName = COLORS.filter((colorObj) => colorObj.gradient === color)[0].name;
-    content = stateData.loveSpot.content;
+    addressRef.value = stateData.loveSpot.address;
+    selectedColor.value = stateData.loveSpot.color;
+    selectedColorName.value = COLORS.filter((colorObj) => colorObj.gradient === selectedColor.value)[0].name;
+    contentRef.value = stateData.loveSpot.content;
     loveSpotDocId = stateData.loveSpot.id || "";
     uploadedPhotos = stateData.loveSpot.photos;
-    log("uploadedPhotos:", uploadedPhotos);
   }
 
   // Reactive data
-  const addressRef: Ref<string> = ref(address);
   const loading: Ref<boolean> = ref(true);
-  const contentRef: Ref<string> = ref(content);
   const uploadedPhotosRef: Ref<string[]> = ref(uploadedPhotos);
   const uploading: Ref<boolean> = ref(false);
   const uploadProgress: Ref<number> = ref(0);
-  const selectedColor = ref(color);
   const showAllColors = ref(false);
-  const selectedColorName = ref(colorName);
 
   // Reverse geocode to get address
   const getAddress = async (): Promise<void> => {
@@ -193,7 +186,7 @@ export const useCreateLoveSpot = () => {
   // Save location data to Supabase
   const saveToDatabase = async (): Promise<void> => {
     try {
-      const locationData: loveSpot = {
+      const locationData: LoveSpot = {
         coordinates: {
           lat: Number(lat),
           lng: Number(lng),
@@ -202,7 +195,7 @@ export const useCreateLoveSpot = () => {
         photos: uploadedPhotosRef.value,
         content: contentRef.value,
         created_at: new Date(),
-        color,
+        color: selectedColor.value,
       };
       const loveSpots = JSON.parse(localStorage.getItem("loveSpots") || "[]");
 
@@ -290,6 +283,11 @@ export const useCreateLoveSpot = () => {
     selectedColorName.value = colorObj.name;
   };
 
+  const updateAddress=(event)=>{
+    addressRef.value=event.target.innerText
+    log("address after edit",addressRef.value)
+  }
+
   onMounted(() => {
     getAddress();
   });
@@ -320,5 +318,6 @@ export const useCreateLoveSpot = () => {
     openInMaps,
     goBack,
     selectColor,
+    updateAddress
   };
 };

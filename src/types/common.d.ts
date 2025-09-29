@@ -1,6 +1,6 @@
-import {loveSpot} from "./db"
+import {LoveSpot} from "./db"
 import type { HistoryState } from 'vue-router'
 
 export interface loveSpotState extends HistoryState {
-  loveSpot: loveSpot;
+  loveSpot: LoveSpot;
 }
