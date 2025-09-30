@@ -172,6 +172,10 @@
   margin: 0;
   color: #333;
   line-height: 1.5;
+  width: 100%;
+  border: none;
+  outline: none;
+  background-color: #f8f9fa;
 }
 
 .upload-area {

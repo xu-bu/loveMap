@@ -15,7 +15,7 @@
     </div>
 
     <!-- Love Spot Content -->
-    <div v-else-if="spot" class="love-spot-content">
+    <div v-else-if="loveSpot" class="love-spot-content">
       <!-- Header -->
       <header class="header">
         <button @click="goBack" class="back-btn"><span>←</span> Back</button>
@@ -29,21 +29,21 @@
           @mousedown="onMouseStart" @mousemove="onMouseMove" @mouseup="onMouseEnd" @mouseleave="onMouseEnd">
 
           <div class="photo-track" :style="{ transform: `translateX(-${currentIndex * 100}%)` }">
-            <div v-for="(photo, index) in spot.photos" :key="index" class="photo-slide" @click="openPhotoModal(index)">
+            <div v-for="(photo, index) in loveSpot.photos" :key="index" class="photo-slide" @click="openPhotoModal(index)">
               <img :src="photo" :alt="`Love spot photo ${index + 1}`" class="gallery-photo" />
             </div>
           </div>
 
           <!-- Photo Indicators -->
-          <div v-if="spot.photos.length > 1" class="photo-indicators">
-            <button v-for="(photo, index) in spot.photos" :key="index" @click="goToPhoto(index)" class="indicator"
+          <div v-if="loveSpot.photos.length > 1" class="photo-indicators">
+            <button v-for="(photo, index) in loveSpot.photos" :key="index" @click="goToPhoto(index)" class="indicator"
               :class="{ active: index === currentIndex }">
             </button>
           </div>
 
           <!-- Photo Counter -->
           <div class="photo-counter">
-            {{ currentIndex + 1 }} / {{ spot.photos.length }}
+            {{ currentIndex + 1 }} / {{ loveSpot.photos.length }}
           </div>
         </div>
       </div>
@@ -53,9 +53,9 @@
         <!-- Address -->
         <div class="address-section">
           <h2>📍 Location</h2>
-          <p class="address">{{ spot.address }}</p>
+          <p class="address">{{ loveSpot.address }}</p>
           <div class="coordinates">
-            <small>{{ spot.coordinates.lat.toFixed(6) }}, {{ spot.coordinates.lng.toFixed(6) }}</small>
+            <small>{{ loveSpot.coordinates.lat.toFixed(6) }}, {{ loveSpot.coordinates.lng.toFixed(6) }}</small>
           </div>
         </div>
 
@@ -63,14 +63,14 @@
         <div class="story-section">
           <h2>💕 Our Story</h2>
           <div class="story-content">
-            <p>{{ spot.content }}</p>
+            <p>{{ loveSpot.content }}</p>
           </div>
         </div>
 
         <!-- Created Date -->
-        <div v-if="spot.created_at" class="date-section">
+        <div v-if="loveSpot.created_at" class="date-section">
           <h3>✨ Created</h3>
-          <p class="created-date">{{ formatDate(spot.created_at) }}</p>
+          <p class="created-date">{{ formatDate(loveSpot.created_at) }}</p>
         </div>
       </div>
 
@@ -85,7 +85,7 @@
     <div v-if="showModal" class="photo-modal" @click="closeModalOnBackdrop">
       <!-- Modal Header -->
       <div class="modal-header">
-        <div class="photo-count">{{ modalIndex + 1 }} / {{ spot!.photos.length }}</div>
+        <div class="photo-count">{{ modalIndex + 1 }} / {{ loveSpot!.photos.length }}</div>
         <button @click="closeModal" class="close-btn">✕</button>
       </div>
 
@@ -98,8 +98,8 @@
           transform: `translateX(-${modalIndex * 100}%)`,
           transition: isDragging ? 'none' : 'transform 0.3s ease'
         }">
-          <div v-for="(photo, index) in spot!.photos" :key="index" class="modal-photo-slide">
-            <img :src="spot?.photos[currentIndex.valueOf()]" :alt="`Love spot photo ${currentIndex.valueOf() + 1}`"
+          <div v-for="(photo, index) in loveSpot!.photos" :key="index" class="modal-photo-slide">
+            <img :src="loveSpot?.photos[currentIndex.valueOf()]" :alt="`Love spot photo ${currentIndex.valueOf() + 1}`"
               class="modal-photo" @click.stop />
           </div>
         </div>
@@ -112,8 +112,8 @@
       </div>
 
       <!-- Modal Indicators -->
-      <div v-if="spot!.photos.length > 1" class="modal-indicators">
-        <button v-for="(photo, index) in spot!.photos" :key="index" @click.stop="goToModalPhoto(index)"
+      <div v-if="loveSpot!.photos.length > 1" class="modal-indicators">
+        <button v-for="(photo, index) in loveSpot!.photos" :key="index" @click.stop="goToModalPhoto(index)"
           class="modal-indicator" :class="{ active: index === modalIndex }">
         </button>
       </div>
@@ -143,10 +143,8 @@ const modalIndex = ref(0);
 const isDragging = ref(false);
 const swipeDirection = ref('');
 // Safe computed properties to handle null/undefined
-const spot = computed(() => loveSpot.value);
-const color = computed(() => spot.value?.color);
-console.log("loveSpot color:", spot.value?.color);
-const hasPhotos = computed(() => Boolean(spot.value?.photos?.length));
+const color = computed(() => loveSpot?.color);
+const hasPhotos = computed(() => Boolean(loveSpot?.photos?.length));
 
 // Touch/Mouse handling variables
 let startX = 0;
@@ -278,8 +276,8 @@ const handleModalSwipeEnd = () => {
 
 // Navigation methods
 const nextPhoto = () => {
-  if (!spot.value) return
-  if (currentIndex.value < spot.value.photos.length - 1) {
+  if (!loveSpot) return
+  if (currentIndex.value < loveSpot.photos.length - 1) {
     currentIndex.value++;
   }
 };
@@ -295,8 +293,8 @@ const goToPhoto = (index: number) => {
 };
 
 const nextModalPhoto = () => {
-  if (!spot.value) return
-  if (modalIndex.value < spot.value.photos.length - 1) {
+  if (!loveSpot) return
+  if (modalIndex.value < loveSpot.photos.length - 1) {
     modalIndex.value++;
   }
 };

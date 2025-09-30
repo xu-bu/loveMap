@@ -9,13 +9,13 @@ const {
   selectedColorName,
   lat,
   lng,
-  address,
+  addressRef,
   loading,
+  addressLoading,
   content,
   uploadedPhotos,
   uploading,
   uploadProgress,
-  updateAddress,
   copyCoordinates,
   handleFileSelect,
   removePhoto,
@@ -30,7 +30,11 @@ const {
 </script>
 
 <template>
-  <div class="create-love-spot">
+  <div v-if="loading" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+  </div>
+  <div v-else class="create-love-spot">
     <!-- Header -->
     <header class="header">
       <button @click="goBack" class="back-btn">
@@ -68,11 +72,11 @@ const {
         <!-- Address -->
         <div class="address-card">
           <h3>Address</h3>
-          <div v-if="loading" class="loading">
+          <div v-if="addressLoading" class="loading">
             <div class="spinner">🔄</div>
             <span>Finding address...</span>
           </div>
-          <p v-else class="address-text" contenteditable="true" @input="updateAddress">{{ address }}</p>
+          <input v-else class="address-text" v-model="addressRef" />
         </div>
       </section>
 
@@ -90,8 +94,7 @@ const {
           </div>
 
           <!-- Expand/Collapse Button -->
-          <button  @click="showAllColors = !showAllColors" class="expand-btn"
-            :style="{ background: selectedColor }">
+          <button @click="showAllColors = !showAllColors" class="expand-btn" :style="{ background: selectedColor }">
             {{ showAllColors ? 'Show Less' : `Show All (${COLORS.length} colors)` }}
             <span class="expand-icon" :class="{ rotated: showAllColors }">▼</span>
           </button>

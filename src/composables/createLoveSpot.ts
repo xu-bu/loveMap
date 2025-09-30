@@ -2,11 +2,12 @@ import { ref, onMounted, type Ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getSupabaseClient } from "../services/db";
 import { GoogleSearchService } from "../services/googleSearch";
-import { LoveSpot, Database } from "../types/db";
+import { LoveSpot } from "../types/db";
 import { getRegeoCode } from "../composables/gaodeMap";
 import { log } from "@/utils/logger";
 import { loveSpotState } from "@/types/common";
 import { COLORS } from "../consts";
+import _ from "lodash";
 
 const supabaseClient = getSupabaseClient();
 // Global table reference
@@ -21,10 +22,10 @@ export const useCreateLoveSpot = () => {
   let lat = route.query.lat as string;
   let lng = route.query.lng as string;
   const origin = route.query.origin;
-  const selectedColor = ref('');
-  const selectedColorName = ref('');
-  const addressRef: Ref<string> = ref('');
-  const contentRef: Ref<string> = ref('');
+  const selectedColor = ref("");
+  const selectedColorName = ref("");
+  const addressRef = ref("");
+  const contentRef = ref("");
   const stateData = history.state! as loveSpotState;
   let uploadedPhotos: string[] = [];
   // Location document ID
@@ -36,14 +37,17 @@ export const useCreateLoveSpot = () => {
     lng = stateData.loveSpot.coordinates.lng.toString();
     addressRef.value = stateData.loveSpot.address;
     selectedColor.value = stateData.loveSpot.color;
-    selectedColorName.value = COLORS.filter((colorObj) => colorObj.gradient === selectedColor.value)[0].name;
+    selectedColorName.value = COLORS.filter(
+      (colorObj) => colorObj.gradient === selectedColor.value
+    )[0].name;
     contentRef.value = stateData.loveSpot.content;
     loveSpotDocId = stateData.loveSpot.id || "";
     uploadedPhotos = stateData.loveSpot.photos;
   }
 
   // Reactive data
-  const loading: Ref<boolean> = ref(true);
+  const loading: Ref<boolean> = ref(false);
+  const addressLoading: Ref<boolean> = ref(true);
   const uploadedPhotosRef: Ref<string[]> = ref(uploadedPhotos);
   const uploading: Ref<boolean> = ref(false);
   const uploadProgress: Ref<number> = ref(0);
@@ -51,17 +55,14 @@ export const useCreateLoveSpot = () => {
 
   // Reverse geocode to get address
   const getAddress = async (): Promise<void> => {
-    log("current coordinates:", lat, lng);
-    log("adderss:", addressRef.value);
-    console.log("bool value: ", Boolean(addressRef.value));
     if (!lat || !lng || addressRef.value) {
       console.log("skip geocoding");
-      loading.value = false;
+      addressLoading.value = false;
       return;
     }
 
     try {
-      loading.value = true;
+      addressLoading.value = true;
       log("origin:", origin);
       if (origin === "google") {
         addressRef.value = await googleSearchService.getAddress(lat, lng);
@@ -73,7 +74,7 @@ export const useCreateLoveSpot = () => {
       addressRef.value = "Unable to load address";
     } finally {
       console.log("address:", addressRef.value);
-      loading.value = false;
+      addressLoading.value = false;
     }
   };
 
@@ -186,7 +187,9 @@ export const useCreateLoveSpot = () => {
   // Save location data to Supabase
   const saveToDatabase = async (): Promise<void> => {
     try {
-      const locationData: LoveSpot = {
+      addressLoading.value = true;
+      const currentLoveSpot: LoveSpot = {
+        id: loveSpotDocId,
         coordinates: {
           lat: Number(lat),
           lng: Number(lng),
@@ -201,15 +204,8 @@ export const useCreateLoveSpot = () => {
 
       if (loveSpotDocId) {
         // Update existing record - exclude created_at from updates
-        const updateData = {
-          coordinates: locationData.coordinates,
-          address: locationData.address,
-          photos: locationData.photos,
-          content: locationData.content,
-          color: locationData.color,
-        };
         const { error } = await table
-          .update(updateData)
+          .update(_.omit(currentLoveSpot, "created_at"))
           .eq("id", loveSpotDocId);
 
         if (error) {
@@ -220,26 +216,28 @@ export const useCreateLoveSpot = () => {
           (loveSpot) => loveSpot.id === loveSpotDocId
         );
 
-        loveSpots[toUpdateIndex] = updateData;
+        loveSpots[toUpdateIndex] = currentLoveSpot;
       } else {
         // Create new record
-        const insertData = {
-          coordinates: locationData.coordinates,
-          address: locationData.address,
-          photos: locationData.photos,
-          content: locationData.content,
-          color: locationData.color,
-        } as Database["public"]["Tables"]["loveMap"]["Insert"];
-        const { error } = await table.insert(insertData);
+        const { data, error } = await table
+          .insert(currentLoveSpot)
+          .select("id")
+          .single();
 
         if (error) {
           throw error;
         }
+        loveSpotDocId = data?.id;
+        currentLoveSpot.id = loveSpotDocId;
         // update localStorage
-        loveSpots.push(locationData);
+        loveSpots.push(currentLoveSpot);
       }
       localStorage.setItem("loveSpots", JSON.stringify(loveSpots));
-      router.back();
+      addressLoading.value = false;
+      router.replace({
+        name: "LoveSpot",
+        state: { loveSpot: JSON.parse(JSON.stringify(currentLoveSpot)) },
+      });
     } catch (error) {
       console.error("Error saving to database:", error);
       alert("Failed to save location. Please try again.");
@@ -278,15 +276,10 @@ export const useCreateLoveSpot = () => {
     router.back();
   };
   const selectColor = (colorObj) => {
-    log(colorObj)
+    log(colorObj);
     selectedColor.value = colorObj.gradient;
     selectedColorName.value = colorObj.name;
   };
-
-  const updateAddress=(event)=>{
-    addressRef.value=event.target.innerText
-    log("address after edit",addressRef.value)
-  }
 
   onMounted(() => {
     getAddress();
@@ -298,13 +291,14 @@ export const useCreateLoveSpot = () => {
     router,
 
     // Reactive data
+    loading,
     selectedColor,
     showAllColors,
     selectedColorName,
     lat,
     lng,
-    address: addressRef,
-    loading,
+    addressRef,
+    addressLoading,
     content: contentRef,
     uploadedPhotos: uploadedPhotosRef,
     uploading,
@@ -318,6 +312,5 @@ export const useCreateLoveSpot = () => {
     openInMaps,
     goBack,
     selectColor,
-    updateAddress
   };
 };

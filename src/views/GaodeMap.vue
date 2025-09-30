@@ -50,7 +50,7 @@
 
       <!-- Floating Control Buttons -->
       <div class="floating-controls">
-        <button @click="getCurrentLocation" class="control-btn primary">
+        <button @click="setCurrentLocation" class="control-btn primary">
           📍
         </button>
         <button @click="searchNearby" class="control-btn">
@@ -464,7 +464,12 @@ const addMarker = (
   });
 
   marker.on("click", () => {
-    if (clickCallback) clickCallback();
+    if (clickCallback) {
+      // setTimeout otherwise it will be triggered in new page
+      setTimeout(() => {
+        clickCallback()
+      }, 50)
+    }
     else infoWindow.open(map, position);
   });
 
@@ -486,7 +491,7 @@ const addMarker = (
 };
 
 // Get current location using Geolocation plugin
-const getCurrentLocation = () => {
+const setCurrentLocation = () => {
   const { geolocation } = plugins;
   if (!geolocation) return;
 
@@ -654,6 +659,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 onMounted(() => {
   nextTick(async () => {
     await oneTimeInitMap();
+    setCurrentLocation();
   });
 });
 
@@ -701,7 +707,7 @@ onUnmounted(() => {
 // Expose methods for parent components
 defineExpose({
   map,
-  getCurrentLocation,
+  getCurrentLocation: setCurrentLocation,
   searchNearby,
   loveSpots,
   displayLoveSpots,
